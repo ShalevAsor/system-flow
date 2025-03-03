@@ -1,0 +1,21 @@
+version: "3.8" # Docker Compose file format version
+services:
+  mongo: # Service name for MongoDB
+    image: mongo:latest # Uses the latest MongoDB image from Docker Hub
+    restart: always # Automatically restarts if it crashes
+    ports:
+      - "27017:27017" # Maps container port to host port (host:container)
+    volumes:
+      - mongo_data:/data/db # Persists data between container restarts
+    environment:
+      - MONGO_INITDB_DATABASE=fullstack-trainer # Creates this database on startup
+  redis: # Service name for Redis
+    image: redis:alpine # Uses the lightweight Alpine version of Redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data # Persists Redis data
+volumes: # Defines named volumes that persist data
+  mongo_data: # MongoDB data storage
+  redis_data: # Redis data storage
