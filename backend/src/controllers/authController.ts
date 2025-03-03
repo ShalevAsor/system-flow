@@ -1,29 +1,15 @@
-// backend\src\controllers\authController.ts
-import { Request, Response } from "express";
-import { Error as MongooseError } from "mongoose";
+// backend/src/controllers/authController.ts
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
-import config from "../config";
+import config from "../config/config";
+import logger from "../utils/logger";
+import { sendSuccess, sendError } from "../utils/responseFormatter";
+import { UserResponse, ApiResponse } from "../types/responsesTypes";
 
 const JWT_SECRET = config.JWT_SECRET;
 const JWT_EXPIRES_IN = config.JWT_EXPIRES_IN;
-// Define a type for Mongoose ValidationError
-interface ValidationError extends MongooseError.ValidationError {
-  errors: {
-    [path: string]: MongooseError.ValidatorError;
-  };
-}
 
-// Function to check if an error is a Mongoose validation error
-function isValidationError(error: unknown): error is ValidationError {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "name" in error &&
-    error.name === "ValidationError" &&
-    "errors" in error
-  );
-}
 // Generate JWT token
 const generateToken = (userId: string): string => {
   return jwt.sign({ id: userId }, JWT_SECRET, {
@@ -33,105 +19,140 @@ const generateToken = (userId: string): string => {
 
 /**
  * Register a new user
- *
  */
-
-export const register = async (req: Request, res: Response): Promise<void> => {
+export const register = async (
+  req: Request,
+  res: Response<ApiResponse<UserResponse>>,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { email, password, firstName, lastName } = req.body;
+
     // Check if user already exists
-    const exitingUser = await User.findOne({ email });
-    if (exitingUser) {
-      res.status(400).json({ message: "User already exists" });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      sendError(
+        res,
+        "User already exists",
+        { email: "Email address already in use" },
+        400
+      );
       return;
     }
+
     // Create new user
     const user = new User({ email, password, firstName, lastName });
     await user.save();
+
     // Generate JWT token
     const token = generateToken(user._id.toString());
-    res.status(201).json({
-      id: user._id,
+
+    // Format the user data for response
+    const userData: UserResponse = {
+      id: user._id.toString(),
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       token,
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    // Check if the error is a validation error
-    if (isValidationError(error)) {
-      const validationErrors: Record<string, string> = {};
+    };
 
-      Object.keys(error.errors).forEach((key) => {
-        validationErrors[key] = error.errors[key].message;
-      });
-
-      res.status(400).json({
-        message: "Validation failed",
-        errors: validationErrors,
-      });
-      return;
-    }
-    res.status(500).json({ message: "Server error during registration" });
+    sendSuccess(res, userData, "User registered successfully", 201);
+  } catch (error: unknown) {
+    logger.error("Registration error:", error);
+    next(error);
   }
 };
 
 /**
  * Login a user
- *
  */
-
-export const login = async (req: Request, res: Response): Promise<void> => {
+export const login = async (
+  req: Request,
+  res: Response<ApiResponse<UserResponse>>,
+  next: NextFunction
+): Promise<void> => {
   try {
     const { email, password } = req.body;
+
     // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
-      res.status(401).json({ message: "Invalid email" });
+      sendError(
+        res,
+        "Authentication failed",
+        { email: "Invalid email or password" },
+        401
+      );
       return;
     }
+
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      res.status(401).json({ message: "Invalid password" });
+      sendError(
+        res,
+        "Authentication failed",
+        { password: "Invalid email or password" },
+        401
+      );
       return;
     }
+
     // Generate JWT token
     const token = generateToken(user._id.toString());
-    res.status(200).json({
-      id: user._id,
+
+    // Format the user data for response
+    const userData: UserResponse = {
+      id: user._id.toString(),
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       token,
-    });
+    };
+
+    sendSuccess(res, userData, "Login successful", 200);
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Server error during login" });
+    logger.error("Login error:", error);
+    next(error);
   }
 };
 
 /**
- * Get  user profile
+ * Get user profile
  */
-
 export const getCurrentUser = async (
   req: Request,
-  res: Response
+  res: Response<ApiResponse<UserResponse>>,
+  next: NextFunction
 ): Promise<void> => {
   try {
     // Get user ID from the request
     const userId = req.user?.id;
+
     // Find user by ID
     const user = await User.findById(userId).select("-password");
     if (!user) {
-      res.status(404).json({ message: "User not found" });
+      sendError(
+        res,
+        "User not found",
+        { id: "User with provided ID does not exist" },
+        404
+      );
       return;
     }
-    res.status(200).json(user);
+
+    // Format the user data for response
+    const userData: UserResponse = {
+      id: user._id.toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      token: req.token,
+    };
+
+    sendSuccess(res, userData, "User profile retrieved successfully", 200);
   } catch (error) {
-    console.error("Error fetching user profile:", error);
-    res.status(500).json({ message: "Server error fetching user profile" });
+    logger.error("Error fetching user:", error);
+    next(error);
   }
 };

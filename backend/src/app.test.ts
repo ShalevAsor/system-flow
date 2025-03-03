@@ -1,6 +1,6 @@
 // src/app.test.ts
 import request from "supertest";
-import { app, closeServer } from "./app";
+import { app, closeServer } from "./server";
 
 describe("App", () => {
   // Close connections after all tests
