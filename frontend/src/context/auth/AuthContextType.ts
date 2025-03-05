@@ -1,4 +1,4 @@
-import { User } from "../../types";
+import { User } from "../../services/api/authService";
 export interface AuthContextType {
   user: User | null;
   loading: boolean;

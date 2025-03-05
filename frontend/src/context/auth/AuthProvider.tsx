@@ -1,7 +1,9 @@
 import React, { useState, useEffect, ReactNode } from "react";
 import { AuthContext } from "./AuthContext";
-import { authApi } from "../../services/api/authApi";
-import { User, StorageKeys } from "../../types";
+import { StorageKeys } from "../../types";
+import { User } from "../../services/api/authService";
+import authService from "../../services/api/authService";
+import { getErrorMessage } from "../../utils/apiUtils";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -23,11 +25,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      const userData = await authApi.getCurrentUser();
+      const userData = await authService.getCurrentUser();
       setUser(userData);
     } catch (err) {
-      // Set error state instead of just logging
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      console.error("Failed to load user:", err);
       // Clear token on authentication error
       localStorage.removeItem(StorageKeys.TOKEN);
       setUser(null);
@@ -51,16 +52,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const userData = await authApi.register({
+      const userData = await authService.register({
         email,
         password,
         firstName,
         lastName,
       });
-      const { token: _, ...userInfo } = userData;
-      setUser(userInfo);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Registration failed");
+      setUser(userData);
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
       throw error;
     } finally {
       setLoading(false);
@@ -72,18 +72,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const userData = await authApi.login({ email, password });
+      const userData = await authService.login({ email, password });
       const { token: _, ...userInfo } = userData;
       setUser(userInfo);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Login failed");
+      setError(getErrorMessage(error));
       throw error;
     } finally {
       setLoading(false);
     }
   };
   const logout = () => {
-    authApi.logout();
+    authService.logout();
     setUser(null);
   };
   const refreshAuth = () => {

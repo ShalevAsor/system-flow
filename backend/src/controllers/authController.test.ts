@@ -1,12 +1,13 @@
-// backend/src/controllers/authController.test.ts
+
 import request from "supertest";
 import mongoose from "mongoose";
 import { app, startServer, closeServer } from "../server";
 import { User } from "../models/User";
 
+// Updated test user with a password that meets the new requirements
 const testUser = {
   email: "test@example.com",
-  password: "password123",
+  password: "Password123", // Now includes uppercase, lowercase, and numbers
   firstName: "Test",
   lastName: "User",
 };
@@ -56,7 +57,7 @@ describe("Authentication Controller", () => {
     it("should validate required fields", async () => {
       const res = await request(app).post(`${baseUrl}/register`).send({
         email: "test@example.com",
-        password: "password123",
+        password: "Password123",
       });
 
       expect(res.status).toBe(400);
@@ -85,7 +86,21 @@ describe("Authentication Controller", () => {
         .post(`${baseUrl}/register`)
         .send({
           ...testUser,
-          password: "12345", // Too short
+          password: "Abc12", // Too short for the new 8-character minimum
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe("Validation failed");
+      expect(res.body.errors).toHaveProperty("password");
+    });
+
+    it("should validate password complexity", async () => {
+      const res = await request(app)
+        .post(`${baseUrl}/register`)
+        .send({
+          ...testUser,
+          password: "password12345", // Missing uppercase
         });
 
       expect(res.status).toBe(400);
@@ -135,7 +150,7 @@ describe("Authentication Controller", () => {
     it("should not login a user with wrong password", async () => {
       const res = await request(app)
         .post(`${baseUrl}/login`)
-        .send({ email: testUser.email, password: "wrongpassword" });
+        .send({ email: testUser.email, password: "WrongPass123" });
 
       expect(res.status).toBe(401);
       expect(res.body.success).toBe(false);
@@ -171,6 +186,18 @@ describe("Authentication Controller", () => {
       const res = await request(app).post(`${baseUrl}/login`).send({
         email: testUser.email,
         password: "",
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe("Validation failed");
+      expect(res.body.errors).toHaveProperty("password");
+    });
+
+    it("should validate password length during login", async () => {
+      const res = await request(app).post(`${baseUrl}/login`).send({
+        email: testUser.email,
+        password: "Short1",
       });
 
       expect(res.status).toBe(400);

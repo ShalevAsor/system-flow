@@ -147,7 +147,6 @@ export const getCurrentUser = async (
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      token: req.token,
     };
 
     sendSuccess(res, userData, "User profile retrieved successfully", 200);

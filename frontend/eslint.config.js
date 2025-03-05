@@ -23,12 +23,12 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
-      // Add this rule to match your backend configuration
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
         },
       ],
     },

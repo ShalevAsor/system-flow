@@ -1,44 +1,50 @@
 // frontend/src/App.tsx
-import { useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { AuthProvider } from "./context/auth/AuthProvider";
-import LoginForm from "./components/auth/LoginForm";
-import RegisterForm from "./components/auth/RegisterForm";
-import Home from "./pages/Home";
-import "./App.css";
+import ProtectedRoute from "./components/routing/ProtectedRoute";
+import MainLayout from "./components/layout/MainLayout";
+import AuthLayout from "./components/layout/AuthLayout";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/auth/LoginPage";
+import RegisterPage from "./pages/auth/RegisterPage";
+import DashboardPage from "./pages/dashboard/DashboardPage";
+import ProfilePage from "./pages/profile/ProfilePage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function App() {
-  const [showRegister, setShowRegister] = useState(false);
-
   return (
-    <AuthProvider>
-      <div className="container">
-        <header>
-          <h1>Script-to-UI Web App</h1>
-          <p>Convert your scripts into user-friendly interfaces</p>
-        </header>
-        <main>
-          <Home />
+    <Router>
+      <AuthProvider>
+        <Routes>
+          {/* Auth routes with centered layout */}
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+          </Route>
 
-          {!showRegister ? (
-            <div>
-              <LoginForm />
-              <p>
-                Don't have an account?{" "}
-                <button onClick={() => setShowRegister(true)}>Register</button>
-              </p>
-            </div>
-          ) : (
-            <div>
-              <RegisterForm />
-              <p>
-                Already have an account?{" "}
-                <button onClick={() => setShowRegister(false)}>Login</button>
-              </p>
-            </div>
-          )}
-        </main>
-      </div>
-    </AuthProvider>
+          {/* Main routes with standard layout */}
+          <Route element={<MainLayout />}>
+            {/* Home page */}
+            <Route path="/" element={<HomePage />} />
+
+            {/* Protected routes - require authentication */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
+
+            {/* Not found route */}
+            <Route path="/not-found" element={<NotFoundPage />} />
+            <Route path="*" element={<Navigate to="/not-found" replace />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 }
 

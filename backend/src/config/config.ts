@@ -7,8 +7,9 @@ const config = {
   MONGODB_URI:
     process.env.NODE_ENV === "test"
       ? process.env.TEST_MONGODB_URI ||
-        "mongodb://localhost:27017/script-to-ui-test"
-      : process.env.MONGODB_URI || "mongodb://localhost:27017/script-to-ui",
+        "mongodb://localhost:27017/fullstack-trainer-test"
+      : process.env.MONGODB_URI ||
+        "mongodb://localhost:27017/fullstack-trainer",
   JWT_SECRET:
     process.env.JWT_SECRET ||
     (() => {

@@ -27,7 +27,7 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "testSetup.ts"
+    "src/**/*.test.tsx"
+    // "testSetup.ts"
   ]
 }
