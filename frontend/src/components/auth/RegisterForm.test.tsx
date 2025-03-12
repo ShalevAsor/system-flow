@@ -1,529 +1,296 @@
+// frontend/src/components/auth/RegisterForm.test.tsx
 import React from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-import { vi, describe, it, expect, beforeEach } from "vitest";
 import RegisterForm from "./RegisterForm";
-import * as authHooks from "../../hooks/useAuth";
+import * as AuthHook from "../../hooks/useAuth";
+import { ErrorType } from "../../types/errors";
+import * as ToastUtils from "../../utils/toast";
 
 // Mock the useAuth hook
-vi.mock("../../hooks/useAuth", () => ({
-  useAuth: vi.fn(),
+vi.mock("../../hooks/useAuth", async () => {
+  const actual = await vi.importActual("../../hooks/useAuth");
+  return {
+    ...actual,
+    useAuth: vi.fn(),
+  };
+});
+
+// Mock the toast utilities
+vi.mock("../../utils/toast", () => ({
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
 }));
 
 describe("RegisterForm", () => {
-  // Helper function to set up useAuth mock with different return values
-  const mockUseAuth = ({
-    register = vi.fn(),
-    loading = false,
-    error = null as string | null,
-  }) => {
-    vi.mocked(authHooks.useAuth).mockReturnValue({
+  // Setup variables
+  const mockRegister = vi.fn();
+  const mockClearAuthError = vi.fn();
+  const mockOnRegistrationSuccess = vi.fn();
+
+  // Reset mocks before each test
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Default mock implementation for useAuth
+    vi.mocked(AuthHook.useAuth).mockReturnValue({
+      register: mockRegister,
+      loading: false,
+      clearAuthError: mockClearAuthError,
       user: null,
-      loading,
-      error,
-      register,
+      authError: null,
       login: vi.fn(),
       logout: vi.fn(),
+      refreshAuth: vi.fn(),
+      verifyEmail: vi.fn(),
+      resendVerificationEmail: vi.fn(),
+      requestPasswordReset: vi.fn(),
+      resetPassword: vi.fn(),
+      isAuthenticated: false,
+      isEmailVerified: false,
+      hasAuthError: vi.fn().mockReturnValue(false),
     });
+  });
+
+  // Helper function to render the component
+  const renderRegisterForm = () => {
+    return render(
+      <RegisterForm onRegistrationSuccess={mockOnRegistrationSuccess} />
+    );
   };
 
-  beforeEach(() => {
-    // Reset mocks before each test
-    vi.resetAllMocks();
-    // Default mock setup
-    mockUseAuth({ register: vi.fn() });
-  });
+  it("renders all form fields correctly", () => {
+    renderRegisterForm();
 
-  it("renders form elements correctly", () => {
-    // Render the component
-    render(<RegisterForm />);
-
-    // Check for first name field
-    const firstNameInput = screen.getByLabelText(/first name/i);
-    expect(firstNameInput).toBeInTheDocument();
-    expect(firstNameInput).toHaveAttribute("type", "text");
-
-    // Check for last name field
-    const lastNameInput = screen.getByLabelText(/last name/i);
-    expect(lastNameInput).toBeInTheDocument();
-    expect(lastNameInput).toHaveAttribute("type", "text");
-
-    // Check for email field
-    const emailInput = screen.getByLabelText(/email/i);
-    expect(emailInput).toBeInTheDocument();
-    expect(emailInput).toHaveAttribute("type", "email");
-
-    // Check for password field
-    const passwordInput = screen.getByLabelText(/^password$/i);
-    expect(passwordInput).toBeInTheDocument();
-    expect(passwordInput).toHaveAttribute("type", "password");
-
-    // Check for confirm password field
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-    expect(confirmPasswordInput).toBeInTheDocument();
-    expect(confirmPasswordInput).toHaveAttribute("type", "password");
-
-    // Check for submit button
-    const submitButton = screen.getByRole("button", {
-      name: /create account/i,
-    });
-    expect(submitButton).toBeInTheDocument();
+    // Check for form elements
+    expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/last name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
 
     // Check for password requirements text
-    const passwordRequirements = screen.getByText(
-      /password must be at least 8 characters/i
-    );
-    expect(passwordRequirements).toBeInTheDocument();
+    expect(
+      screen.getByText(/Password must be at least 8 characters/i)
+    ).toBeInTheDocument();
+
+    // Check for email verification notice
+    expect(
+      screen.getByText(/By registering, you'll need to verify your email/i)
+    ).toBeInTheDocument();
+
+    // Check for submit button
+    expect(
+      screen.getByRole("button", { name: /create account/i })
+    ).toBeInTheDocument();
   });
 
-  it("validates name fields", async () => {
-    // Render the component
-    render(<RegisterForm />);
+  it("validates the form fields correctly", async () => {
+    const user = userEvent.setup();
+    renderRegisterForm();
 
-    // Get form elements
-    const firstNameInput = screen.getByLabelText(/first name/i);
-    const lastNameInput = screen.getByLabelText(/last name/i);
+    // Get submit button
     const submitButton = screen.getByRole("button", {
       name: /create account/i,
     });
 
-    // Test Case 1: Submit without entering name fields
-    await userEvent.click(submitButton);
+    // Try to submit without filling the form
+    await user.click(submitButton);
 
-    // Check for first name error
-    const firstNameError = await screen.findByText(/first name is required/i);
-    expect(firstNameError).toBeInTheDocument();
-    expect(firstNameInput).toHaveAttribute("aria-invalid", "true");
-
-    // Check for last name error
-    const lastNameError = await screen.findByText(/last name is required/i);
-    expect(lastNameError).toBeInTheDocument();
-    expect(lastNameInput).toHaveAttribute("aria-invalid", "true");
-
-    // Test Case 2: Enter valid names
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-
-    // Try submitting again (will still fail on other fields but name fields should be valid)
-    await userEvent.click(submitButton);
-
-    // Name field errors should no longer be present
+    // Check for validation errors (assuming all fields are required)
     await waitFor(() => {
-      const firstNameErrorAfterValid = screen.queryByText(
-        /first name is required/i
-      );
-      const lastNameErrorAfterValid = screen.queryByText(
-        /last name is required/i
-      );
-
-      expect(firstNameErrorAfterValid).not.toBeInTheDocument();
-      expect(lastNameErrorAfterValid).not.toBeInTheDocument();
-
-      expect(firstNameInput).toHaveAttribute("aria-invalid", "false");
-      expect(lastNameInput).toHaveAttribute("aria-invalid", "false");
+      // These assertions depend on your registerSchema
+      expect(screen.getByText(/first name is required/i)).toBeInTheDocument();
+      expect(screen.getByText(/last name is required/i)).toBeInTheDocument();
+      expect(screen.getByText(/email is required/i)).toBeInTheDocument();
+      expect(screen.getByText(/password is required/i)).toBeInTheDocument();
     });
-  });
 
-  it("validates email input", async () => {
-    // Render the component
-    render(<RegisterForm />);
-
-    // Get form elements
+    // Get form inputs to test more specific validations
     const emailInput = screen.getByLabelText(/email/i);
-    const submitButton = screen.getByRole("button", {
-      name: /create account/i,
-    });
-
-    // Test Case 1: Empty email validation
-    await userEvent.click(submitButton);
-
-    const requiredEmailError = await screen.findByText(/email is required/i);
-    expect(requiredEmailError).toBeInTheDocument();
-    expect(emailInput).toHaveAttribute("aria-invalid", "true");
-
-    // Test Case 2: Invalid email format
-    await userEvent.clear(emailInput);
-    await userEvent.type(emailInput, "invalid-email");
-    await userEvent.click(submitButton);
-
-    const invalidFormatError = await screen.findByText(
-      /please enter a valid email address/i
-    );
-    expect(invalidFormatError).toBeInTheDocument();
-    expect(emailInput).toHaveAttribute("aria-invalid", "true");
-
-    // Test Case 3: Valid email format
-    await userEvent.clear(emailInput);
-    await userEvent.type(emailInput, "test@example.com");
-
-    // We still need to fill in other required fields before submitting
-    const firstNameInput = screen.getByLabelText(/first name/i);
-    const lastNameInput = screen.getByLabelText(/last name/i);
     const passwordInput = screen.getByLabelText(/^password$/i);
     const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
 
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-    await userEvent.type(passwordInput, "Password123");
-    await userEvent.type(confirmPasswordInput, "Password123");
+    // Test invalid email
+    await user.type(emailInput, "invalid-email");
+    await user.click(submitButton);
 
-    await userEvent.click(submitButton);
-
-    // Verify that the email error message is not present anymore
     await waitFor(() => {
-      const emailErrorAfterValid = screen.queryByText(
-        /please enter a valid email address/i
-      );
-      expect(emailErrorAfterValid).not.toBeInTheDocument();
-      expect(emailInput).toHaveAttribute("aria-invalid", "false");
+      expect(
+        screen.getByText(/please enter a valid email address/i)
+      ).toBeInTheDocument();
+    });
+
+    // Test password validation (assuming min length of 8 and complexity requirements)
+    await user.clear(emailInput);
+    await user.type(emailInput, "valid@example.com");
+    await user.type(passwordInput, "short");
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/password must be at least 8 characters/i)
+      ).toBeInTheDocument();
+    });
+
+    // Test passwords don't match
+    await user.clear(passwordInput);
+    await user.type(passwordInput, "ValidPass123");
+    await user.type(confirmPasswordInput, "DifferentPass123");
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
     });
   });
 
-  it("validates password requirements", async () => {
-    // Render the component
-    render(<RegisterForm />);
+  it("submits the form with valid data and handles success", async () => {
+    const user = userEvent.setup();
+    renderRegisterForm();
 
-    // Get form elements
-    const passwordInput = screen.getByLabelText(/^password$/i);
-    const submitButton = screen.getByRole("button", {
-      name: /create account/i,
-    });
-
-    // Test Case 1: Empty password validation
-    await userEvent.click(submitButton);
-
-    const requiredPasswordError = await screen.findByText(
-      /password is required/i
-    );
-    expect(requiredPasswordError).toBeInTheDocument();
-    expect(passwordInput).toHaveAttribute("aria-invalid", "true");
-
-    // Test Case 2: Password too short
-    await userEvent.clear(passwordInput);
-    await userEvent.type(passwordInput, "short");
-    await userEvent.click(submitButton);
-
-    const tooShortError = await screen.findByText(
-      /password must be at least 8 characters/i
-    );
-    expect(tooShortError).toBeInTheDocument();
-
-    // Test Case 3: Password missing uppercase/lowercase/number requirements
-    await userEvent.clear(passwordInput);
-    await userEvent.type(passwordInput, "passwordonly"); // Missing uppercase and number
-    await userEvent.click(submitButton);
-
-    const requirementsError = await screen.findByText(
-      /password must contain at least one uppercase letter, one lowercase letter, and one number/i
-    );
-    expect(requirementsError).toBeInTheDocument();
-
-    // Test Case 4: Valid password
-    await userEvent.clear(passwordInput);
-    await userEvent.type(passwordInput, "Password123");
-
-    // Fill other required fields
+    // Get form inputs
     const firstNameInput = screen.getByLabelText(/first name/i);
     const lastNameInput = screen.getByLabelText(/last name/i);
     const emailInput = screen.getByLabelText(/email/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-    await userEvent.type(emailInput, "test@example.com");
-    await userEvent.type(confirmPasswordInput, "Password123");
-
-    await userEvent.click(submitButton);
-
-    // Verify that the password error message is not present anymore
-    await waitFor(() => {
-      const passwordErrorAfterValid = screen.queryByText(
-        /password must contain at least one uppercase letter/i
-      );
-      expect(passwordErrorAfterValid).not.toBeInTheDocument();
-      expect(passwordInput).toHaveAttribute("aria-invalid", "false");
-    });
-  });
-
-  it("validates password confirmation", async () => {
-    // Render the component
-    render(<RegisterForm />);
-
-    // Get form elements
     const passwordInput = screen.getByLabelText(/^password$/i);
     const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
     const submitButton = screen.getByRole("button", {
       name: /create account/i,
     });
 
-    // Fill in a valid password
-    await userEvent.type(passwordInput, "Password123");
-
-    // Test Case 1: Empty confirm password
-    await userEvent.click(submitButton);
-
-    const requiredConfirmError = await screen.findByText(
-      /please confirm your password/i
-    );
-    expect(requiredConfirmError).toBeInTheDocument();
-
-    // Test Case 2: Passwords don't match
-    await userEvent.type(confirmPasswordInput, "DifferentPassword123");
-    await userEvent.click(submitButton);
-
-    const mismatchError = await screen.findByText(/passwords do not match/i);
-    expect(mismatchError).toBeInTheDocument();
-
-    // Test Case 3: Matching passwords
-    await userEvent.clear(confirmPasswordInput);
-    await userEvent.type(confirmPasswordInput, "Password123");
-
-    // Fill other required fields
-    const firstNameInput = screen.getByLabelText(/first name/i);
-    const lastNameInput = screen.getByLabelText(/last name/i);
-    const emailInput = screen.getByLabelText(/email/i);
-
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-    await userEvent.type(emailInput, "test@example.com");
-
-    await userEvent.click(submitButton);
-
-    // Verify that the mismatch error is not present anymore
-    await waitFor(() => {
-      const confirmErrorAfterValid = screen.queryByText(
-        /passwords do not match/i
-      );
-      expect(confirmErrorAfterValid).not.toBeInTheDocument();
-      expect(confirmPasswordInput).toHaveAttribute("aria-invalid", "false");
-    });
-  });
-
-  it("displays the global error message from auth context", () => {
-    // Mock useAuth to return an error
-
-    mockUseAuth({
-      register: vi.fn(),
-      error: "This email is already registered. Please use a different email.",
-    });
-
-    // Render the component
-    render(<RegisterForm />);
-
-    // Check that the global error message is displayed
-    const errorMessage = screen.getByText(
-      /This email is already registered. Please use a different email./i
-    );
-    expect(errorMessage).toBeInTheDocument();
-  });
-
-  it("shows loading state while submitting", async () => {
-    // Create a mock register function that returns a promise that doesn't resolve immediately
-    const registerPromise = new Promise((resolve) => {
-      setTimeout(() => resolve({}), 1000);
-    });
-
-    // Mock the register function to return our controlled promise and set loading to true
-    const registerMock = vi.fn(() => registerPromise);
-    mockUseAuth({ register: registerMock, loading: true });
-
-    // Render the component
-    render(<RegisterForm />);
-
-    // Verify that the loading button is shown with the loading text
-    const loadingButton = screen.getByRole("button", {
-      name: /creating account/i,
-    });
-    expect(loadingButton).toBeInTheDocument();
-
-    // Verify that the button is disabled during loading
-    expect(loadingButton).toBeDisabled();
-  });
-
-  it("calls register function with correct data on submit", async () => {
-    // Create a mock register function
-    const registerMock = vi.fn();
-    mockUseAuth({ register: registerMock });
-
-    // Render the component
-    render(<RegisterForm />);
-
-    // Fill in the form with valid data
-    const firstNameInput = screen.getByLabelText(/first name/i);
-    const lastNameInput = screen.getByLabelText(/last name/i);
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/^password$/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-    await userEvent.type(emailInput, "user@example.com");
-    await userEvent.type(passwordInput, "Password123");
-    await userEvent.type(confirmPasswordInput, "Password123");
+    // Fill the form with valid data
+    await user.type(firstNameInput, "John");
+    await user.type(lastNameInput, "Doe");
+    await user.type(emailInput, "john.doe@example.com");
+    await user.type(passwordInput, "SecurePass123");
+    await user.type(confirmPasswordInput, "SecurePass123");
 
     // Submit the form
-    const submitButton = screen.getByRole("button", {
-      name: /create account/i,
-    });
-    await userEvent.click(submitButton);
+    await user.click(submitButton);
 
-    // Check that the register function was called with the correct data
-    expect(registerMock).toHaveBeenCalledWith(
-      "user@example.com",
-      "Password123",
-      "John",
-      "Doe"
-    );
+    // Verify register was called with correct arguments
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith(
+        "john.doe@example.com",
+        "SecurePass123",
+        "John",
+        "Doe"
+      );
+      expect(mockOnRegistrationSuccess).toHaveBeenCalledWith(
+        "john.doe@example.com"
+      );
+      expect(ToastUtils.toastSuccess).toHaveBeenCalledWith(
+        "Registration successful , please check your email"
+      );
+    });
   });
 
-  it("displays API errors correctly", async () => {
-    // Mock isApiError to always return true for our test
-    vi.mock("../../utils/apiUtils", () => ({
-      isApiError: () => true,
-    }));
-
-    // Create a mock register function that will reject
-    const registerMock = vi.fn().mockRejectedValue({
-      response: {
-        data: {
-          errors: {
-            email: "Email already exists in our system",
-          },
-        },
-      },
+  it("shows loading state when submitting", () => {
+    // Set loading state to true
+    vi.mocked(AuthHook.useAuth).mockReturnValue({
+      register: mockRegister,
+      loading: true,
+      clearAuthError: mockClearAuthError,
+      user: null,
+      authError: null,
+      login: vi.fn(),
+      logout: vi.fn(),
+      refreshAuth: vi.fn(),
+      verifyEmail: vi.fn(),
+      resendVerificationEmail: vi.fn(),
+      requestPasswordReset: vi.fn(),
+      resetPassword: vi.fn(),
+      isAuthenticated: false,
+      isEmailVerified: false,
+      hasAuthError: vi.fn().mockReturnValue(false),
     });
 
-    // Set up our useAuth mock
-    mockUseAuth({ register: registerMock });
+    renderRegisterForm();
 
-    // Render the component
-    render(<RegisterForm />);
+    // Verify loading state is displayed
+    expect(screen.getByText(/creating account.../i)).toBeInTheDocument();
 
-    // Fill in the form
+    // Verify the button is disabled while loading
+    const submitButton = screen.getByRole("button", {
+      name: /creating account.../i,
+    });
+    expect(submitButton).toHaveAttribute("disabled");
+  });
+
+  it("handles email already in use error", async () => {
+    const user = userEvent.setup();
+    renderRegisterForm();
+
+    // Setup error scenario for email already in use
+    mockRegister.mockRejectedValueOnce({
+      type: ErrorType.AUTH_EMAIL_ALREADY_IN_USE,
+      message: "Email address is already in use",
+    });
+
+    // Get form inputs
     const firstNameInput = screen.getByLabelText(/first name/i);
     const lastNameInput = screen.getByLabelText(/last name/i);
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/^password$/i);
     const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-    await userEvent.type(emailInput, "test@example.com");
-    await userEvent.type(passwordInput, "Password123");
-    await userEvent.type(confirmPasswordInput, "Password123");
-
-    // Submit the form
     const submitButton = screen.getByRole("button", {
       name: /create account/i,
     });
-    await userEvent.click(submitButton);
 
-    // Verify register was called with correct values
-    expect(registerMock).toHaveBeenCalledWith(
-      "test@example.com",
-      "Password123",
-      "John",
-      "Doe"
-    );
+    // Fill the form with valid data
+    await user.type(firstNameInput, "John");
+    await user.type(lastNameInput, "Doe");
+    await user.type(emailInput, "existing@example.com");
+    await user.type(passwordInput, "SecurePass123");
+    await user.type(confirmPasswordInput, "SecurePass123");
 
-    // Check for aria-invalid attribute on email field
+    // Submit the form
+    await user.click(submitButton);
+
+    // Verify error is displayed
     await waitFor(() => {
-      expect(emailInput).toHaveAttribute("aria-invalid", "true");
+      expect(
+        screen.getByText(/email address is already in use/i)
+      ).toBeInTheDocument();
     });
   });
 
-  it("handles successful registration correctly", async () => {
-    // Create a mock user that will be returned on successful registration
-    const mockUser = {
-      id: "123",
-      email: "test@example.com",
-      firstName: "John",
-      lastName: "Doe",
-    };
+  it("cleans up errors when unmounting", () => {
+    const { unmount } = renderRegisterForm();
 
-    // Mock register to resolve with the user
-    const registerMock = vi.fn().mockResolvedValue(mockUser);
-    mockUseAuth({ register: registerMock });
+    // Unmount the component
+    unmount();
 
-    // Render the component
-    render(<RegisterForm />);
+    // Verify cleanup was called
+    expect(mockClearAuthError).toHaveBeenCalled();
+  });
 
-    // Fill the form
+  it("clears errors when form is submitted", async () => {
+    const user = userEvent.setup();
+    renderRegisterForm();
+
+    // Get form inputs
     const firstNameInput = screen.getByLabelText(/first name/i);
     const lastNameInput = screen.getByLabelText(/last name/i);
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/^password$/i);
     const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-    await userEvent.type(emailInput, "test@example.com");
-    await userEvent.type(passwordInput, "Password123");
-    await userEvent.type(confirmPasswordInput, "Password123");
-
-    // Submit the form
-    const submitButton = screen.getByRole("button", {
-      name: /create account/i,
-    });
-    await userEvent.click(submitButton);
-
-    // Verify register was called with correct values
-    expect(registerMock).toHaveBeenCalledWith(
-      "test@example.com",
-      "Password123",
-      "John",
-      "Doe"
-    );
-
-    // Success scenario typically doesn't show messages in the form itself
-    // But we can verify there are no error elements
-    await waitFor(() => {
-      const errorElements = screen.queryAllByRole("alert");
-      expect(errorElements.length).toBe(0);
-    });
-  });
-
-  it("disables submit button during form submission", async () => {
-    // Create a mock register function that returns a promise that doesn't resolve immediately
-    const registerPromise = new Promise((resolve) => {
-      setTimeout(() => resolve({}), 10000);
-    });
-
-    // Mock useAuth with a register function that returns our delayed promise
-    const registerMock = vi.fn(() => registerPromise);
-    mockUseAuth({ register: registerMock });
-
-    // Render the component
-    render(<RegisterForm />);
-
-    // Fill valid form data
-    const firstNameInput = screen.getByLabelText(/first name/i);
-    const lastNameInput = screen.getByLabelText(/last name/i);
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/^password$/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-
-    await userEvent.type(firstNameInput, "John");
-    await userEvent.type(lastNameInput, "Doe");
-    await userEvent.type(emailInput, "test@example.com");
-    await userEvent.type(passwordInput, "Password123");
-    await userEvent.type(confirmPasswordInput, "Password123");
-
-    // Get the submit button
     const submitButton = screen.getByRole("button", {
       name: /create account/i,
     });
 
-    // Button should be enabled before submission
-    expect(submitButton).not.toBeDisabled();
+    // Fill the form with valid data
+    await user.type(firstNameInput, "John");
+    await user.type(lastNameInput, "Doe");
+    await user.type(emailInput, "john.doe@example.com");
+    await user.type(passwordInput, "SecurePass123");
+    await user.type(confirmPasswordInput, "SecurePass123");
 
     // Submit the form
-    await userEvent.click(submitButton);
+    await user.click(submitButton);
 
-    // Now check if the button becomes disabled
-    await waitFor(() => {
-      expect(submitButton).toBeDisabled();
-    });
+    // Verify errors were cleared
+    expect(mockClearAuthError).toHaveBeenCalled();
   });
 });

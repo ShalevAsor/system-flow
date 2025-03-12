@@ -2,7 +2,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useState } from "react";
-import Button from "../ui/Button";
 
 /**
  * Navigation bar component with responsive design and authentication state handling

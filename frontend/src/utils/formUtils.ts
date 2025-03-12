@@ -1,35 +1,44 @@
-// src/utils/formUtils.ts
+// frontend/src/utils/formUtils.ts
 import { UseFormSetError, FieldValues, Path } from "react-hook-form";
-import { isApiError } from "./apiUtils";
+import { AppError } from "../types/errors";
 
 /**
- * Helper function to set form errors from API response
- * @param error - The error received from the API
+ * Helper function to set form errors from AppError objects
+ *
+ * @param error - The structured application error
  * @param setError - The setError function from useForm
  * @param fieldMapping - Optional mapping between backend field names and form field names
+ * @returns The general error message, if any
  */
 export function setFormErrors<T extends FieldValues>(
-  error: unknown,
+  error: AppError,
   setError: UseFormSetError<T>,
   fieldMapping: Record<string, Path<T>> = {}
-): void {
-  if (isApiError(error) && error.response?.data.errors) {
-    const backendErrors = error.response.data.errors;
+): string | null {
+  console.log("Setting form errors:", error);
 
-    Object.entries(backendErrors).forEach(([key, message]) => {
+  // Only set field errors for validation errors
+  if (error.fieldErrors && Object.keys(error.fieldErrors).length > 0) {
+    Object.entries(error.fieldErrors).forEach(([key, message]) => {
       // Check if we need to map this field name
       const formFieldName = fieldMapping[key] || (key as Path<T>);
 
-      // Check if this is a valid field in our form
+      // Set error on the field
       try {
         setError(formFieldName, {
           type: "server",
-          message: message as string,
+          message: message,
         });
       } catch (e) {
         // If the field doesn't exist in the form, we'll just skip it
         console.warn(`Field ${key} not found in form: ${e}`);
       }
     });
+
+    // If there are field errors, don't return a general message
+    return null;
   }
+
+  // Return general error message for non-field errors
+  return error.message;
 }

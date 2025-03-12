@@ -7,7 +7,8 @@
     "build": "tsc",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "lint": "eslint . --ext .ts",
-    "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles --forceExit"
+    "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles --forceExit",
+    "test:coverage": "cross-env NODE_ENV=test jest --coverage --runInBand --detectOpenHandles --forceExit"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.10.2",
+    "nodemailer": "^6.10.0",
     "redis": "^4.7.0"
   },
   "devDependencies": {
@@ -32,6 +34,7 @@
     "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.13.5",
+    "@types/nodemailer": "^6.4.17",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^8.25.0",
     "@typescript-eslint/parser": "^8.25.0",

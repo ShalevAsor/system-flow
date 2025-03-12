@@ -5,8 +5,8 @@ export interface UserResponse {
   firstName: string;
   lastName: string;
   token?: string;
+  isEmailVerified: boolean;
 }
-
 export interface ErrorResponse {
   success: false;
   message: string;

@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 
-type AuthCardProps = {
+export type AuthCardProps = {
   title: string;
   subtitle?: string;
   children: ReactNode;

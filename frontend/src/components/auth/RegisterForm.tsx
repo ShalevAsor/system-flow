@@ -1,22 +1,31 @@
-// frontend/src/components/auth/RegisterForm.tsx
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../../hooks/useAuth";
-import { isApiError } from "../../utils/apiUtils";
 import { registerSchema } from "../../schemas/authSchemas";
 import LoadingButton from "../ui/LoadingButton";
-import ErrorAlert from "../ui/ErrorAlert";
+import FormAlert from "../common/FormAlert";
+import FormField from "../common/FormField";
+import { useCallback, useEffect } from "react";
+import { useFormError } from "../../hooks/useFormError";
+import { toastSuccess } from "../../utils/toast";
+import { ensureAppError } from "../../types/errors";
 
 // Infer type from the schema
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
+interface RegisterFormProps {
+  onRegistrationSuccess: (email: string) => void;
+}
+
 /**
  * Register form component with validation
+ * Focused only on handling the registration form submission and validation
  */
-const RegisterForm = () => {
-  const { register: registerUser, loading, error } = useAuth();
-
+const RegisterForm = ({ onRegistrationSuccess }: RegisterFormProps) => {
+  const { register: registerUser, loading, clearAuthError } = useAuth();
+  const { formError, handleFormError, clearFormError } =
+    useFormError<RegisterFormValues>();
   // Initialize React Hook Form with Zod resolver
   const {
     register,
@@ -34,8 +43,20 @@ const RegisterForm = () => {
     },
   });
 
+  // Clean up errors when component unmounts
+  const handleCleanup = useCallback(() => {
+    clearAuthError();
+  }, [clearAuthError]);
+  useEffect(() => {
+    return handleCleanup;
+  }, [handleCleanup]);
+
   // Handle form submission
   const onSubmit = async (data: RegisterFormValues) => {
+    // Clear previous errors
+    clearFormError();
+    clearAuthError();
+
     try {
       await registerUser(
         data.email,
@@ -43,21 +64,15 @@ const RegisterForm = () => {
         data.firstName,
         data.lastName
       );
-      // Navigation is handled in the register page component
+      // Notify parent component of success
+      onRegistrationSuccess(data.email);
+      toastSuccess("Registration successful , please check your email");
     } catch (err: unknown) {
-      if (isApiError(err) && err.response?.data.errors) {
-        // Map backend errors to form fields
-        const backendErrors = err.response.data.errors;
-
-        Object.keys(backendErrors).forEach((key) => {
-          if (key in data) {
-            setError(key as keyof RegisterFormValues, {
-              type: "server",
-              message: backendErrors[key],
-            });
-          }
-        });
-      }
+      // Convert unknown error to AppError
+      const appError = ensureAppError(err);
+      // Handle different error types
+      const errorType = handleFormError(appError, setError);
+      console.log("Error type in register form:", errorType);
     }
   };
 
@@ -67,126 +82,57 @@ const RegisterForm = () => {
       className="space-y-6 w-full"
       noValidate
     >
-      {/* Global error message */}
-      <ErrorAlert message={error} />
+      {/* Form-level error message with close button */}
+      {formError && (
+        <FormAlert
+          message={formError}
+          variant="error"
+          onClose={clearFormError}
+          showCloseButton={true}
+        />
+      )}
 
       {/* First and Last Name (side by side on larger screens) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* First Name field */}
-        <div className="space-y-2">
-          <label
-            htmlFor="firstName"
-            className="block text-sm font-medium text-gray-700"
-          >
-            First Name
-          </label>
-          <div className="mt-1">
-            <input
-              id="firstName"
-              type="text"
-              autoComplete="given-name"
-              className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-offset-0 focus:outline-none ${
-                errors.firstName
-                  ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                  : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-              }`}
-              {...register("firstName")}
-              aria-invalid={errors.firstName ? "true" : "false"}
-            />
-            {errors.firstName && (
-              <p className="mt-1 text-sm text-red-600" role="alert">
-                {errors.firstName.message}
-              </p>
-            )}
-          </div>
-        </div>
+        <FormField
+          id="firstName"
+          label="First Name"
+          autoComplete="given-name"
+          error={errors.firstName?.message}
+          register={register("firstName")}
+        />
 
         {/* Last Name field */}
-        <div className="space-y-2">
-          <label
-            htmlFor="lastName"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Last Name
-          </label>
-          <div className="mt-1">
-            <input
-              id="lastName"
-              type="text"
-              autoComplete="family-name"
-              className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-offset-0 focus:outline-none ${
-                errors.lastName
-                  ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                  : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-              }`}
-              {...register("lastName")}
-              aria-invalid={errors.lastName ? "true" : "false"}
-            />
-            {errors.lastName && (
-              <p className="mt-1 text-sm text-red-600" role="alert">
-                {errors.lastName.message}
-              </p>
-            )}
-          </div>
-        </div>
+        <FormField
+          id="lastName"
+          label="Last Name"
+          autoComplete="family-name"
+          error={errors.lastName?.message}
+          register={register("lastName")}
+        />
       </div>
 
       {/* Email field */}
-      <div className="space-y-2">
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Email
-        </label>
-        <div className="mt-1">
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-offset-0 focus:outline-none ${
-              errors.email
-                ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-            }`}
-            {...register("email")}
-            aria-invalid={errors.email ? "true" : "false"}
-          />
-          {errors.email && (
-            <p className="mt-1 text-sm text-red-600" role="alert">
-              {errors.email.message}
-            </p>
-          )}
-        </div>
-      </div>
+      <FormField
+        id="email"
+        label="Email"
+        type="email"
+        autoComplete="email"
+        error={errors.email?.message}
+        register={register("email")}
+      />
 
       {/* Password field */}
       <div className="space-y-2">
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Password
-        </label>
-        <div className="mt-1">
-          <input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-offset-0 focus:outline-none ${
-              errors.password
-                ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-            }`}
-            {...register("password")}
-            aria-invalid={errors.password ? "true" : "false"}
-          />
-          {errors.password && (
-            <p className="mt-1 text-sm text-red-600" role="alert">
-              {errors.password.message}
-            </p>
-          )}
-        </div>
+        <FormField
+          id="password"
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+          error={errors.password?.message}
+          register={register("password")}
+        />
         <p className="text-xs text-gray-500">
           Password must be at least 8 characters and include uppercase,
           lowercase, and numbers.
@@ -194,33 +140,14 @@ const RegisterForm = () => {
       </div>
 
       {/* Confirm Password field */}
-      <div className="space-y-2">
-        <label
-          htmlFor="confirmPassword"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Confirm Password
-        </label>
-        <div className="mt-1">
-          <input
-            id="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            className={`w-full px-4 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-offset-0 focus:outline-none ${
-              errors.confirmPassword
-                ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-            }`}
-            {...register("confirmPassword")}
-            aria-invalid={errors.confirmPassword ? "true" : "false"}
-          />
-          {errors.confirmPassword && (
-            <p className="mt-1 text-sm text-red-600" role="alert">
-              {errors.confirmPassword.message}
-            </p>
-          )}
-        </div>
-      </div>
+      <FormField
+        id="confirmPassword"
+        label="Confirm Password"
+        type="password"
+        autoComplete="new-password"
+        error={errors.confirmPassword?.message}
+        register={register("confirmPassword")}
+      />
 
       {/* Submit button */}
       <LoadingButton
@@ -231,6 +158,11 @@ const RegisterForm = () => {
         disabled={isSubmitting}
         type="submit"
       />
+
+      <p className="text-xs text-gray-500 text-center">
+        By registering, you'll need to verify your email address before logging
+        in.
+      </p>
     </form>
   );
 };

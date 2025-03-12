@@ -8,6 +8,11 @@ export interface IUser extends Document {
   password: string;
   firstName: string;
   lastName: string;
+  isEmailVerified: boolean;
+  verificationToken: string | null;
+  verificationTokenExpiry: Date | null;
+  resetPasswordToken: string | null;
+  resetPasswordTokenExpiry: Date | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword: (candidatePassword: string) => Promise<boolean>;
@@ -38,6 +43,26 @@ const userSchema = new Schema<IUser>(
       required: true,
       trim: true,
       minLength: 2,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationToken: {
+      type: String,
+      default: null,
+    },
+    verificationTokenExpiry: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordTokenExpiry: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -78,6 +103,8 @@ userSchema.set("toJSON", {
     delete returnedObject._id;
     delete returnedObject.__v;
     delete returnedObject.password; // Also remove password
+    delete returnedObject.verificationToken; // Don't expose verification token
+    delete returnedObject.resetPasswordToken; // Don't expose reset token
   },
 });
 

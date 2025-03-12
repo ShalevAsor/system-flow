@@ -1,5 +1,5 @@
 // backend/src/validations/authValidation.js
-import { body } from "express-validator";
+import { body, query } from "express-validator";
 
 export const registerValidationRules = [
   body("email")
@@ -48,4 +48,49 @@ export const loginValidationRules = [
     .withMessage("Password is required")
     .isLength({ min: 8 })
     .withMessage("Password must be at least 8 characters long"),
+];
+
+// ------------------------------------------
+// Validation rules for email verification
+export const verifyEmailValidationRules = [
+  query("token")
+    .notEmpty()
+    .withMessage("Verification token is required")
+    .isString()
+    .withMessage("Verification token must be a string"),
+];
+
+// Validation rules for password reset request
+export const requestPasswordResetValidationRules = [
+  body("email")
+    .isEmail()
+    .withMessage("Please provide a valid email address")
+    .normalizeEmail()
+    .trim(),
+];
+
+// Validation rules for password reset
+export const resetPasswordValidationRules = [
+  body("token")
+    .notEmpty()
+    .withMessage("Reset token is required")
+    .isString()
+    .withMessage("Reset token must be a string"),
+
+  body("newPassword")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters long")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/)
+    .withMessage(
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+    ),
+];
+
+// Validation rules for resending verification email
+export const resendVerificationEmailValidationRules = [
+  body("email")
+    .isEmail()
+    .withMessage("Please provide a valid email address")
+    .normalizeEmail()
+    .trim(),
 ];

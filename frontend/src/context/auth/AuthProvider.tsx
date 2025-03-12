@@ -3,7 +3,8 @@ import { AuthContext } from "./AuthContext";
 import { StorageKeys } from "../../types";
 import { User } from "../../services/api/authService";
 import authService from "../../services/api/authService";
-import { getErrorMessage } from "../../utils/apiUtils";
+import { parseApiError } from "../../utils/apiUtils";
+import { AppError } from "../../types/errors";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -12,12 +13,17 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<AppError | null>(null);
+
+  // Function to explicitly clear auth errors
+  const clearAuthError = () => {
+    setAuthError(null);
+  };
 
   // Function to check if the user is logged in
   const checkLoggedIn = async () => {
     setLoading(true);
-    setError(null);
+    setAuthError(null);
 
     try {
       const token = localStorage.getItem(StorageKeys.TOKEN);
@@ -32,6 +38,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear token on authentication error
       localStorage.removeItem(StorageKeys.TOKEN);
       setUser(null);
+
+      // Only set auth state errors, not form errors
+      const appError = parseApiError(err);
+      if (appError.type.startsWith("auth/")) {
+        setAuthError(appError);
+      }
     } finally {
       setLoading(false);
     }
@@ -50,18 +62,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     lastName: string
   ) => {
     setLoading(true);
-    setError(null);
+    setAuthError(null);
     try {
-      const userData = await authService.register({
+      await authService.register({
         email,
         password,
         firstName,
         lastName,
       });
-      setUser(userData);
-    } catch (error: unknown) {
-      setError(getErrorMessage(error));
-      throw error;
+    } catch (err) {
+      // Parse the error
+      const appError = parseApiError(err);
+
+      // Only set auth state errors in the provider
+      if (appError.type.startsWith("auth/")) {
+        setAuthError(appError);
+      }
+
+      // Always throw the structured error for the component to handle
+      throw appError;
     } finally {
       setLoading(false);
     }
@@ -70,35 +89,143 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Function to log in a user
   const login = async (email: string, password: string) => {
     setLoading(true);
-    setError(null);
+    setAuthError(null);
     try {
       const userData = await authService.login({ email, password });
-      const { token: _, ...userInfo } = userData;
-      setUser(userInfo);
-    } catch (error) {
-      setError(getErrorMessage(error));
-      throw error;
+      setUser(userData);
+    } catch (err) {
+      const appError = parseApiError(err);
+      // Only set auth state errors in the provider
+      if (appError.type.startsWith("auth/")) {
+        setAuthError(appError);
+      }
+      // Always throw the structured error for the component to handle
+      throw appError;
     } finally {
       setLoading(false);
     }
   };
+
   const logout = () => {
     authService.logout();
     setUser(null);
+    clearAuthError(); // Clear any errors on logout
   };
+
   const refreshAuth = () => {
     if (!loading) {
       checkLoggedIn();
     }
   };
+
+  // Email verification handling
+  const verifyEmail = async (token: string): Promise<string> => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const message = await authService.verifyEmail(token);
+
+      // Refresh auth to update user state if they're logged in
+      refreshAuth();
+
+      return message;
+    } catch (err) {
+      console.error("Verification error details:", err);
+      const appError = parseApiError(err);
+
+      // Only set auth state errors in the provider
+      if (appError.type.startsWith("auth/")) {
+        setAuthError(appError);
+      }
+
+      // Always throw the structured error for the component to handle
+      throw appError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendVerificationEmail = async (email: string): Promise<string> => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const message = await authService.resendVerificationEmail({ email });
+      return message;
+    } catch (err) {
+      const appError = parseApiError(err);
+
+      // Only set auth state errors in the provider
+      if (appError.type.startsWith("auth/")) {
+        setAuthError(appError);
+      }
+
+      // Always throw the structured error for the component to handle
+      throw appError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Password reset handling
+  const requestPasswordReset = async (email: string): Promise<string> => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const message = await authService.requestPasswordReset({ email });
+      return message;
+    } catch (err) {
+      const appError = parseApiError(err);
+
+      // Only set auth state errors in the provider
+      if (appError.type.startsWith("auth/")) {
+        setAuthError(appError);
+      }
+
+      // Always throw the structured error for the component to handle
+      throw appError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPassword = async (
+    token: string,
+    newPassword: string
+  ): Promise<string> => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const message = await authService.resetPassword({ token, newPassword });
+      return message;
+    } catch (err) {
+      const appError = parseApiError(err);
+
+      // Only set auth state errors in the provider
+      if (appError.type.startsWith("auth/")) {
+        setAuthError(appError);
+      }
+
+      // Always throw the structured error for the component to handle
+      throw appError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     loading,
-    error,
+    authError,
     login,
     register,
     logout,
-    refreshAuth, // components can trigger a re-auth
+    refreshAuth,
+    verifyEmail,
+    resendVerificationEmail,
+    requestPasswordReset,
+    resetPassword,
+    clearAuthError,
   };
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

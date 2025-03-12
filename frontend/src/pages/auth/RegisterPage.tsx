@@ -1,61 +1,30 @@
-// // frontend/src/pages/auth/RegisterPage.tsx
-// import { useEffect } from "react";
-// import { useNavigate, Link } from "react-router-dom";
-// import { useAuth } from "../../hooks/useAuth";
-// import RegisterForm from "../../components/auth/RegisterForm";
-
-// /**
-//  * Register page component - Handles layout and navigation
-//  */
-// const RegisterPage = () => {
-//   const { user } = useAuth();
-//   const navigate = useNavigate();
-
-//   // Redirect if already logged in
-//   useEffect(() => {
-//     if (user) {
-//       navigate("/dashboard", { replace: true });
-//     }
-//   }, [user, navigate]);
-
-//   return (
-//     <div className="bg-white shadow-md rounded-lg p-8 max-w-md w-full mx-auto">
-//       <div className="text-center mb-8">
-//         <h1 className="text-2xl font-bold text-gray-800">Create Account</h1>
-//         <p className="text-gray-600 mt-2">Fill in your details to register</p>
-//       </div>
-
-//       <RegisterForm />
-
-//       <div className="mt-8 text-center text-sm">
-//         <p className="text-gray-600">
-//           Already have an account?{" "}
-//           <Link
-//             to="/login"
-//             className="text-blue-600 hover:text-blue-500 font-medium"
-//           >
-//             Sign in
-//           </Link>
-//         </p>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default RegisterPage;
-// frontend/src/pages/auth/RegisterPage.tsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import RegisterForm from "../../components/auth/RegisterForm";
+import RegistrationSuccessAlert from "../../components/auth/RegistrationSuccessAlert";
 import AuthCard from "../../components/auth/AuthCard";
 
 /**
- * Register page component - Handles layout and navigation
+ * Enum representing different states of the registration flow
+ */
+enum RegistrationState {
+  FORM = "form",
+  SUCCESS = "success",
+}
+
+/**
+ * Register page component - Manages registration flow states and navigation
  */
 const RegisterPage = () => {
-  const { user } = useAuth();
+  const { user, clearAuthError } = useAuth();
   const navigate = useNavigate();
+
+  // Registration flow state management
+  const [registrationState, setRegistrationState] = useState<RegistrationState>(
+    RegistrationState.FORM
+  );
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   // Redirect if already logged in
   useEffect(() => {
@@ -64,17 +33,56 @@ const RegisterPage = () => {
     }
   }, [user, navigate]);
 
+  // Clean up errors when component unmounts
+  useEffect(() => {
+    return () => {
+      clearAuthError();
+    };
+  }, [clearAuthError]);
+
+  // Handle successful registration
+  const handleRegistrationSuccess = (email: string) => {
+    setRegisteredEmail(email);
+    setRegistrationState(RegistrationState.SUCCESS);
+    // Clear any errors when changing states
+    clearAuthError();
+  };
+
   const footerContent = (
-    <p className="text-gray-600">
-      Already have an account?{" "}
-      <Link
-        to="/login"
-        className="text-blue-600 hover:text-blue-500 font-medium"
-      >
-        Sign in
-      </Link>
-    </p>
+    <>
+      <p className="text-gray-600 mb-2">
+        Already have an account?{" "}
+        <Link
+          to="/login"
+          className="text-blue-600 hover:text-blue-500 font-medium"
+        >
+          Sign in
+        </Link>
+      </p>
+      <p className="text-gray-600 text-sm">
+        Need to verify your email?{" "}
+        <Link
+          to="/resend-verification"
+          className="text-blue-600 hover:text-blue-500 font-medium"
+        >
+          Resend verification
+        </Link>
+      </p>
+    </>
   );
+
+  // Render the appropriate component based on registration state
+  const renderContent = () => {
+    switch (registrationState) {
+      case RegistrationState.SUCCESS:
+        return <RegistrationSuccessAlert email={registeredEmail} />;
+      case RegistrationState.FORM:
+      default:
+        return (
+          <RegisterForm onRegistrationSuccess={handleRegistrationSuccess} />
+        );
+    }
+  };
 
   return (
     <AuthCard
@@ -82,7 +90,7 @@ const RegisterPage = () => {
       subtitle="Fill in your details to register"
       footer={footerContent}
     >
-      <RegisterForm />
+      {renderContent()}
     </AuthCard>
   );
 };

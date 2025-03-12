@@ -17,6 +17,7 @@ declare global {
         email: string;
         firstName: string;
         lastName: string;
+        isEmailVerified: boolean;
       };
     }
   }
@@ -89,6 +90,7 @@ export const userExtractor: RequestHandler = async (
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      isEmailVerified: user.isEmailVerified,
     };
 
     next();
