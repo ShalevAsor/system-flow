@@ -1,111 +1,85 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useSearchParams, Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useEffect, useState, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import AuthCard from "../../components/auth/AuthCard";
+import AuthFooter from "../../components/auth/AuthFooter";
 import SuccessStateCard from "../../components/auth/SuccessStateCard";
-import { Loader } from "lucide-react";
 import { ensureAppError } from "../../types/errors";
+import { useAuthStore } from "../../store/authStore";
+import authService from "../../services/api/authService";
+import Loading from "../../components/ui/Loading";
+
+interface VerificationState {
+  status: "success" | "error" | "pending";
+  message: string;
+}
+const defaultVerificationState: VerificationState = {
+  status: "pending",
+  message: "Verifying email...",
+};
 
 /**
  * Email verification page component
  * Handles verifying user's email with the token from URL
  */
 const VerifyEmailPage = () => {
+  const [state, setState] = useState<VerificationState>(
+    defaultVerificationState
+  );
   const [searchParams] = useSearchParams();
-  const { verifyEmail, user } = useAuth();
   const navigate = useNavigate();
-  const hasAttemptedVerification = useRef(false);
-  const [verificationState, setVerificationState] = useState<
-    "loading" | "success" | "error" | "idle"
-  >("idle");
-  const [errorMessage, setErrorMessage] = useState<string>("");
-  const [tokenValue, setTokenValue] = useState<string>("");
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const verificationAttempted = useRef(false);
 
-  // If user is already logged in and verified, redirect to dashboard
+  // Email verification mutation
+  const verifyMutation = useMutation({
+    mutationFn: authService.verifyEmail,
+    onSuccess: () => {
+      console.log("email verified");
+      setState({ status: "success", message: "email verified" });
+    },
+    onError: (error) => {
+      console.log("verification error:", error);
+      const appError = ensureAppError(error);
+      setState({ status: "error", message: appError.message });
+    },
+  });
+
+  // Handle user authentication and redirection
   useEffect(() => {
-    if (user?.isEmailVerified) {
+    if (isAuthenticated) {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, navigate]);
+  }, [isAuthenticated, navigate]);
 
-  // Handle email verification - wrapped in useCallback to prevent recreating on each render
-  const handleVerification = useCallback(
-    async (token: string) => {
-      // Don't try to verify if we're already loading or succeeded
-      if (verificationState === "loading" || verificationState === "success") {
-        return;
-      }
-
-      setVerificationState("loading");
-
-      try {
-        console.log("Verifying email with token:", token);
-        await verifyEmail(token);
-        setVerificationState("success");
-      } catch (error) {
-        setVerificationState("error");
-        const appError = ensureAppError(error);
-        setErrorMessage(appError.message);
-      }
-    },
-    [verifyEmail, verificationState]
-  );
-
-  // Automatically verify email if token is present
+  // Process the token from URL - only once
   useEffect(() => {
+    // Skip if we've already attempted verification
+    if (verificationAttempted.current) {
+      return;
+    }
+
     const token = searchParams.get("token");
-
-    if (
-      token &&
-      verificationState === "idle" &&
-      !hasAttemptedVerification.current
-    ) {
-      hasAttemptedVerification.current = true;
-      setTokenValue(token);
-      handleVerification(token);
+    if (!token) {
+      setState({ status: "error", message: "No verification token found" });
+      return;
     }
-  }, [searchParams, handleVerification, verificationState]);
 
-  // Manual verification (for retry)
-  const retryVerification = () => {
-    if (tokenValue) {
-      // Reset state to allow retrying
-      setVerificationState("idle");
-      handleVerification(tokenValue);
-    }
-  };
+    // Mark that we've attempted verification
+    verificationAttempted.current = true;
+    verifyMutation.mutate(token);
+  }, [searchParams, verifyMutation]); // Removed state from dependencies
 
-  // Footer links
-  const footerContent = (
-    <div className="text-center space-y-2">
-      <p className="text-gray-600">
-        <Link
-          to="/login"
-          className="text-blue-600 hover:text-blue-500 font-medium"
-        >
-          Back to Login
-        </Link>
-      </p>
-      <p className="text-gray-600 text-sm">
-        Need help?{" "}
-        <a href="#" className="text-blue-600 hover:text-blue-500">
-          Contact Support
-        </a>
-      </p>
-    </div>
-  );
-
-  // Render the appropriate content based on verification state
+  // Render based on current verification status
   const renderContent = () => {
-    switch (verificationState) {
-      case "loading":
+    switch (state.status) {
+      case "pending":
         return (
-          <div className="text-center py-8">
-            <div className="rounded-full h-12 w-12 bg-blue-100 flex items-center justify-center mx-auto mb-4">
-              <Loader className="h-8 w-8 text-blue-600 animate-spin" />
-            </div>
-            <p className="text-gray-600">Verifying your email address...</p>
-          </div>
+          <Loading
+            variant="inline"
+            className="items-center justify-center"
+            message="Verifying email..."
+          />
         );
 
       case "success":
@@ -124,47 +98,24 @@ const VerifyEmailPage = () => {
       case "error":
         return (
           <SuccessStateCard
-            title="Verification Failed"
-            message={
-              errorMessage ||
-              "The verification link may have expired or is invalid."
-            }
+            title="Email Verification Failed"
+            message={state.message}
             icon="error"
-          >
-            <div className="space-y-4 mt-4">
-              <button
-                onClick={retryVerification}
-                className="text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Try Again
-              </button>
-
-              <div className="pt-2">
-                <Link to="/resend-verification" className="inline-block w-full">
-                  <button
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
-                    type="button"
-                  >
-                    Request New Verification Link
-                  </button>
-                </Link>
-              </div>
-            </div>
-          </SuccessStateCard>
+            cta={{
+              label: "retry",
+              to: "/resend-verification",
+            }}
+          />
         );
 
       default:
         return (
           <SuccessStateCard
-            title="Email Verification Required"
-            message="No verification token found. Please check your email for the verification link or request a new one."
+            title="Email Verification"
+            message="Processing your verification request..."
             icon="info"
             iconColor="text-blue-600"
             iconBgColor="bg-blue-100"
-            cta={{
-              label: "Request Verification Link",
-              to: "/resend-verification",
-            }}
           />
         );
     }
@@ -174,7 +125,14 @@ const VerifyEmailPage = () => {
     <AuthCard
       title="Email Verification"
       subtitle="Verify your email address to activate your account"
-      footer={footerContent}
+      footer={
+        <AuthFooter
+          showLogin
+          customText={{
+            loginText: "Back to Login",
+          }}
+        />
+      }
     >
       {renderContent()}
     </AuthCard>

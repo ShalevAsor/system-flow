@@ -16,26 +16,6 @@ import apiClient from "./apiClient";
 // Create a mock for Axios
 const mockAxios = new MockAdapter(apiClient);
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] || null),
-    setItem: vi.fn((key: string, value: string) => {
-      store[key] = value.toString();
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: vi.fn(() => {
-      store = {};
-    }),
-  };
-})();
-
-// Replace the real localStorage with our mock
-Object.defineProperty(window, "localStorage", { value: localStorageMock });
-
 describe("authService", () => {
   // Sample user data for testing
   const mockUser: User = {
@@ -62,7 +42,6 @@ describe("authService", () => {
   // Reset mocks before each test
   beforeEach(() => {
     mockAxios.reset();
-    localStorageMock.clear();
     vi.clearAllMocks();
   });
 
@@ -81,20 +60,6 @@ describe("authService", () => {
 
       // Verify the result
       expect(result).toEqual(mockUser);
-    });
-
-    it("should store token in localStorage upon successful login", async () => {
-      // Setup mock response
-      mockAxios.onPost("/auth/login").reply(200, mockAuthResponse);
-
-      // Call the method
-      await authService.login(loginCredentials);
-
-      // Verify localStorage
-      expect(localStorageMock.setItem).toHaveBeenCalledWith(
-        "userToken",
-        mockUser.token
-      );
     });
 
     it("should throw an error when login fails", async () => {
@@ -128,7 +93,7 @@ describe("authService", () => {
       expect(result).toEqual(mockUser);
     });
 
-    it("should not store token automatically after registration (user needs to verify email)", async () => {
+    it("should handle registration of an unverified user", async () => {
       // Setup mock response with a registered but unverified user
       const unverifiedUser = {
         ...mockUser,
@@ -142,13 +107,10 @@ describe("authService", () => {
       });
 
       // Call the method
-      await authService.register(registerData);
+      const result = await authService.register(registerData);
 
-      // Verify localStorage was not called
-      expect(localStorageMock.setItem).not.toHaveBeenCalledWith(
-        "token",
-        expect.any(String)
-      );
+      // Verify the result includes the unverified flag
+      expect(result.isEmailVerified).toBe(false);
     });
 
     it("should throw an error when registration fails", async () => {
@@ -307,19 +269,6 @@ describe("authService", () => {
 
       // Expect the method to throw
       await expect(authService.getCurrentUser()).rejects.toThrow();
-    });
-  });
-
-  describe("logout", () => {
-    it("should remove token from localStorage", () => {
-      // Setup localStorage with a token
-      localStorage.setItem("userToken", "some-token");
-
-      // Call the method
-      authService.logout();
-
-      // Verify localStorage
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith("userToken");
     });
   });
 });

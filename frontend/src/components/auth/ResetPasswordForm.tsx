@@ -1,16 +1,16 @@
-// src/components/auth/ResetPasswordForm.tsx
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "../../hooks/useAuth";
+import { useMutation } from "@tanstack/react-query";
 import LoadingButton from "../ui/LoadingButton";
 import FormAlert from "../common/FormAlert";
 import FormField from "../common/FormField";
-import { useCallback, useEffect } from "react";
 import { ensureAppError, ErrorType } from "../../types/errors";
 import { useFormError } from "../../hooks/useFormError";
 import { toastSuccess, toastError } from "../../utils/toast";
 import { resetPasswordSchema } from "../../schemas/authSchemas";
+import { useAuthStore } from "../../store/authStore";
+import authService from "../../services/api/authService";
 
 // Infer TypeScript type from the schema
 type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
@@ -29,15 +29,36 @@ const ResetPasswordForm = ({
   onSuccess,
   onInvalidToken,
 }: ResetPasswordFormProps) => {
-  const { resetPassword, loading, clearAuthError } = useAuth();
+  console.log("ResetPasswordForm rendered");
+
+  // Get auth store actions
+  const clearError = useAuthStore((state) => state.clearError);
+  const setError = useAuthStore((state) => state.setError);
+
   const { formError, handleFormError, clearFormError } =
     useFormError<ResetPasswordValues>();
+
+  // Reset password mutation
+  const resetMutation = useMutation({
+    mutationFn: authService.resetPassword,
+    onSuccess: (response) => {
+      toastSuccess(response || "Password has been reset successfully!");
+      onSuccess();
+    },
+    onError: (err) => {
+      const appError = ensureAppError(err);
+      setError(appError);
+      toastError(
+        appError.message || "Failed to reset password. Please try again."
+      );
+    },
+  });
 
   // Initialize React Hook Form with Zod resolver
   const {
     register,
     handleSubmit,
-    setError,
+    setError: setFormError,
     formState: { errors, isSubmitting },
   } = useForm<ResetPasswordValues>({
     resolver: zodResolver(resetPasswordSchema),
@@ -47,35 +68,25 @@ const ResetPasswordForm = ({
     },
   });
 
-  const handleCleanup = useCallback(() => {
-    clearAuthError();
-  }, [clearAuthError]);
-
-  useEffect(() => {
-    return handleCleanup;
-  }, [handleCleanup]);
-
   // Handle form submission
   const onSubmit = async (data: ResetPasswordValues) => {
     // Clear previous errors
     clearFormError();
-    clearAuthError();
+    clearError();
 
     try {
-      const message = await resetPassword(token, data.password);
-      toastSuccess(message || "Password has been reset successfully!");
-      onSuccess();
+      await resetMutation.mutateAsync({
+        token,
+        newPassword: data.password,
+      });
     } catch (err) {
       // Convert unknown error to AppError
       const appError = ensureAppError(err);
       // Handle different error types
-      const errorType = handleFormError(appError, setError);
+      const errorType = handleFormError(appError, setFormError);
       if (errorType === ErrorType.AUTH_INVALID_RESET_TOKEN) {
         onInvalidToken();
       }
-      toastError(
-        appError.message || "Failed to reset password. Please try again."
-      );
     }
   };
 
@@ -117,7 +128,7 @@ const ResetPasswordForm = ({
 
       {/* Submit button */}
       <LoadingButton
-        isLoading={loading}
+        isLoading={resetMutation.isPending}
         variant="primary"
         label="Reset Password"
         loadingText="Resetting password..."

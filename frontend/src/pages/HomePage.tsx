@@ -1,12 +1,13 @@
 // frontend/src/pages/HomePage.tsx
 import { Link } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { useAuthStore } from "../store/authStore";
 
 /**
  * Home page component (public route)
  */
 const HomePage = () => {
-  const { user } = useAuth();
+  console.log("HomePage rendering");
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   return (
     <div className="home-page">
@@ -17,7 +18,7 @@ const HomePage = () => {
         </p>
 
         <div className="hero-actions">
-          {user ? (
+          {isAuthenticated ? (
             <Link to="/dashboard" className="primary-button">
               Go to Dashboard
             </Link>

@@ -1,15 +1,16 @@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "../../hooks/useAuth";
+import { useMutation } from "@tanstack/react-query";
 import { registerSchema } from "../../schemas/authSchemas";
 import LoadingButton from "../ui/LoadingButton";
 import FormAlert from "../common/FormAlert";
 import FormField from "../common/FormField";
-import { useCallback, useEffect } from "react";
 import { useFormError } from "../../hooks/useFormError";
 import { toastSuccess } from "../../utils/toast";
 import { ensureAppError } from "../../types/errors";
+import { useAuthStore } from "../../store/authStore";
+import authService from "../../services/api/authService";
 
 // Infer type from the schema
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -23,14 +24,35 @@ interface RegisterFormProps {
  * Focused only on handling the registration form submission and validation
  */
 const RegisterForm = ({ onRegistrationSuccess }: RegisterFormProps) => {
-  const { register: registerUser, loading, clearAuthError } = useAuth();
+  console.log("RegisterForm rendered");
+
+  // Get clearError from auth store
+  const clearError = useAuthStore((state) => state.clearError);
+  const setError = useAuthStore((state) => state.setError);
+
+  // Form error handling
   const { formError, handleFormError, clearFormError } =
     useFormError<RegisterFormValues>();
+
+  // Registration mutation with React Query
+  const registerMutation = useMutation({
+    mutationFn: authService.register,
+    onSuccess: (data) => {
+      // Notify parent component of success with the email that was used
+      onRegistrationSuccess(data.email);
+      toastSuccess("Registration successful, please check your email");
+    },
+    onError: (err) => {
+      const appError = ensureAppError(err);
+      setError(appError);
+    },
+  });
+
   // Initialize React Hook Form with Zod resolver
   const {
     register,
     handleSubmit,
-    setError,
+    setError: setFormError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -43,36 +65,24 @@ const RegisterForm = ({ onRegistrationSuccess }: RegisterFormProps) => {
     },
   });
 
-  // Clean up errors when component unmounts
-  const handleCleanup = useCallback(() => {
-    clearAuthError();
-  }, [clearAuthError]);
-  useEffect(() => {
-    return handleCleanup;
-  }, [handleCleanup]);
-
   // Handle form submission
   const onSubmit = async (data: RegisterFormValues) => {
     // Clear previous errors
     clearFormError();
-    clearAuthError();
+    clearError();
 
     try {
-      await registerUser(
-        data.email,
-        data.password,
-        data.firstName,
-        data.lastName
-      );
-      // Notify parent component of success
-      onRegistrationSuccess(data.email);
-      toastSuccess("Registration successful , please check your email");
+      await registerMutation.mutateAsync({
+        email: data.email,
+        password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
+      });
     } catch (err: unknown) {
       // Convert unknown error to AppError
       const appError = ensureAppError(err);
       // Handle different error types
-      const errorType = handleFormError(appError, setError);
-      console.log("Error type in register form:", errorType);
+      handleFormError(appError, setFormError);
     }
   };
 
@@ -151,7 +161,7 @@ const RegisterForm = ({ onRegistrationSuccess }: RegisterFormProps) => {
 
       {/* Submit button */}
       <LoadingButton
-        isLoading={loading}
+        isLoading={registerMutation.isPending}
         variant="primary"
         label="Create Account"
         loadingText="Creating Account..."

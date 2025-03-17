@@ -1,21 +1,22 @@
-// frontend/src/components/routing/ProtectedRoute.tsx
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
-
+// import { useAuth } from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
 /**
  * Protected route component that redirects to login if user is not authenticated
  */
 const ProtectedRoute = () => {
-  const { user, loading } = useAuth();
+  console.log("ProtectedRoute rendered");
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
   const location = useLocation();
 
   // Show loading state while checking authentication
-  if (loading) {
+  if (isLoading) {
     return <div className="loading-container">Loading...</div>;
   }
 
   // Redirect to login if not authenticated
-  if (!user) {
+  if (!isAuthenticated) {
     // Save the current location to redirect back after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -24,4 +25,5 @@ const ProtectedRoute = () => {
   return <Outlet />;
 };
 
+// ProtectedRoute.whyDidYouRender = true;
 export default ProtectedRoute;

@@ -21,6 +21,8 @@ import NotFoundPage from "../../pages/NotFoundPage";
  * AppRoutes component that organizes all routes in the application
  */
 export const AppRoutes = () => {
+  console.log("AppRoutes rendering");
+
   return (
     <Routes>
       {/* Auth routes with centered layout */}

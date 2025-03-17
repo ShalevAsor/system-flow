@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import { ApiErrorResponse } from "../services/api/apiClient";
+import { ApiErrorResponse } from "../types/apiTypes";
 import { AppError, ErrorType, createAppError } from "../types/errors";
 
 /**

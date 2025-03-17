@@ -1,17 +1,17 @@
-// frontend/src/components/auth/LoginForm.tsx
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "../../hooks/useAuth";
+import { useMutation } from "@tanstack/react-query";
 import { loginSchema } from "../../schemas/authSchemas";
 import LoadingButton from "../ui/LoadingButton";
 import FormAlert from "../common/FormAlert";
 import FormField from "../common/FormField";
-import { Link } from "react-router-dom";
-import { useCallback, useEffect } from "react";
 import { ErrorType, ensureAppError } from "../../types/errors";
 import { useFormError } from "../../hooks/useFormError";
 import { toastSuccess } from "../../utils/toast";
+import { useAuthStore } from "../../store/authStore";
+import authService from "../../services/api/authService";
+import { queryClient } from "../../lib/reactQuery";
 
 // Infer TypeScript type from the schema
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -25,15 +25,38 @@ interface LoginFormProps {
  * Focused only on handling the login form submission and validation
  */
 const LoginForm = ({ onUnverifiedEmail }: LoginFormProps) => {
-  const { login, loading, clearAuthError } = useAuth();
+  console.log("LoginForm rendered");
+
+  // Get auth store actions using selectors - this is key for performance
+  const login = useAuthStore((state) => state.login);
+  const clearError = useAuthStore((state) => state.clearError);
+  const setError = useAuthStore((state) => state.setError);
+
   const { formError, handleFormError, clearFormError } =
     useFormError<LoginFormValues>();
+
+  // Login mutation with React Query
+  const loginMutation = useMutation({
+    mutationFn: authService.login,
+    onSuccess: (user) => {
+      if (user.token) {
+        login(user.token);
+      }
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+      toastSuccess("Logged in successfully!");
+    },
+    onError: (err) => {
+      const appError = ensureAppError(err);
+      // Use the selector instead of getState() to avoid rerenders
+      setError(appError);
+    },
+  });
 
   // Initialize React Hook Form with Zod resolver
   const {
     register,
     handleSubmit,
-    setError,
+    setError: setFormError,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -43,44 +66,25 @@ const LoginForm = ({ onUnverifiedEmail }: LoginFormProps) => {
     },
   });
 
-  const handleCleanup = useCallback(() => {
-    clearAuthError();
-  }, [clearAuthError]);
-
-  useEffect(() => {
-    return handleCleanup;
-  }, [handleCleanup]);
   // Handle form submission
   const onSubmit = async (data: LoginFormValues) => {
     // Clear previous errors
     clearFormError();
-    clearAuthError();
+    clearError();
 
     try {
-      await login(data.email, data.password);
-      // Navigation is handled in the login page component
-      toastSuccess("Logged in successfully!");
+      await loginMutation.mutateAsync(data);
     } catch (err) {
       // Convert unknown error to AppError
       const appError = ensureAppError(err);
       // Handle different error types
-      const errorType = handleFormError(appError, setError);
+      const errorType = handleFormError(appError, setFormError);
       // Special case: unverified email
       if (errorType === ErrorType.AUTH_EMAIL_UNVERIFIED) {
         onUnverifiedEmail(data.email);
       }
     }
   };
-
-  // Forgot password link for password field
-  const forgotPasswordLink = (
-    <Link
-      to="/forgot-password"
-      className="text-sm font-medium text-blue-600 hover:text-blue-500"
-    >
-      Forgot password?
-    </Link>
-  );
 
   return (
     <form
@@ -116,12 +120,11 @@ const LoginForm = ({ onUnverifiedEmail }: LoginFormProps) => {
         autoComplete="current-password"
         register={register("password")}
         error={errors.password?.message}
-        renderRight={forgotPasswordLink}
       />
 
       {/* Submit button */}
       <LoadingButton
-        isLoading={loading}
+        isLoading={loginMutation.isPending}
         variant="primary"
         label="Sign in"
         loadingText="Logging in..."

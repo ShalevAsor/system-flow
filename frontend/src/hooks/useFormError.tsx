@@ -40,7 +40,8 @@ export function useFormError<T extends FieldValues>() {
     if (
       error.type === ErrorType.AUTH_INVALID_CREDENTIALS ||
       error.type === ErrorType.AUTH_UNAUTHORIZED ||
-      error.type === ErrorType.AUTH_EMAIL_ALREADY_IN_USE
+      error.type === ErrorType.AUTH_EMAIL_ALREADY_IN_USE ||
+      error.type === ErrorType.PROFILE_INCORRECT_PASSWORD
     ) {
       setFormError(error.message);
     }

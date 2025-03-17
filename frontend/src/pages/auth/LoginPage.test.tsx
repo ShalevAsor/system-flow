@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LoginPage from "./LoginPage";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 
 // Mock react-router-dom
 const mockNavigate = vi.fn();
@@ -24,19 +25,12 @@ vi.mock("react-router-dom", () => ({
       {children}
     </a>
   ),
-  Route: ({ element }) => <div>{element}</div>,
-  Routes: ({ children }) => <div>{children}</div>,
-  MemoryRouter: ({ children }) => <div>{children}</div>,
 }));
 
-// Mock the auth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
-  return {
-    ...actual,
-    useAuth: vi.fn(),
-  };
-});
+// Mock Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
 
 // Mock the components used by LoginPage
 vi.mock("../../components/auth/LoginForm", () => ({
@@ -74,33 +68,33 @@ vi.mock("../../components/auth/AuthCard", () => ({
   ),
 }));
 
-describe("LoginPage", () => {
-  const mockClearAuthError = vi.fn();
+// Mock AuthFooter component
+vi.mock("../../components/auth/AuthFooter", () => ({
+  default: ({ showRegister, showForgotPassword, showResendVerification }) => (
+    <div data-testid="auth-footer">
+      {showRegister && <a href="/register">Create an account</a>}
+      {showResendVerification && (
+        <a href="/resend-verification">Resend verification email</a>
+      )}
+      {showForgotPassword && <a href="/forgot-password">Reset password</a>}
+    </div>
+  ),
+}));
 
+describe("LoginPage", () => {
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
-
     // Reset mock location for each test
     mockLocation.state = null;
 
-    // Mock useAuth with default values
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      user: null,
-      clearAuthError: mockClearAuthError,
-      loading: false,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Setup default mock state
+    const mockState = createMockAuthState();
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
     });
   });
 
@@ -111,14 +105,11 @@ describe("LoginPage", () => {
     expect(screen.getByText("Welcome Back")).toBeInTheDocument();
     expect(screen.getByText("Sign in to your account")).toBeInTheDocument();
 
-    // Check that footer contains links
-    const footer = screen.getByTestId("auth-card-footer");
-    expect(footer).toContainElement(screen.getByText(/Don't have an account/i));
-    expect(footer).toContainElement(screen.getByText("Create an account"));
-    expect(footer).toContainElement(
-      screen.getByText("Resend verification email")
-    );
-    expect(footer).toContainElement(screen.getByText("Reset password"));
+    // Check that footer contains expected elements
+    expect(screen.getByTestId("auth-footer")).toBeInTheDocument();
+    expect(screen.getByText("Create an account")).toBeInTheDocument();
+    expect(screen.getByText("Resend verification email")).toBeInTheDocument();
+    expect(screen.getByText("Reset password")).toBeInTheDocument();
   });
 
   it("renders LoginForm by default", () => {
@@ -131,29 +122,13 @@ describe("LoginPage", () => {
   });
 
   it("redirects to dashboard if user is already logged in", async () => {
-    // Mock a logged-in user
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      user: {
-        id: "1",
-        email: "user@example.com",
-        firstName: "Test",
-        lastName: "User",
-        isEmailVerified: true,
-      },
-      clearAuthError: mockClearAuthError,
-      loading: false,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: true,
-      isEmailVerified: true,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Mock authenticated user state
+    const authenticatedState = createMockAuthState({ isAuthenticated: true });
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(authenticatedState);
+      }
+      return authenticatedState;
     });
 
     render(<LoginPage />);
@@ -171,29 +146,13 @@ describe("LoginPage", () => {
     const fromPath = "/profile";
     mockLocation.state = { from: { pathname: fromPath } };
 
-    // Mock a logged-in user
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      user: {
-        id: "1",
-        email: "user@example.com",
-        firstName: "Test",
-        lastName: "User",
-        isEmailVerified: true,
-      },
-      clearAuthError: mockClearAuthError,
-      loading: false,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: true,
-      isEmailVerified: true,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Mock authenticated user state
+    const authenticatedState = createMockAuthState({ isAuthenticated: true });
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(authenticatedState);
+      }
+      return authenticatedState;
     });
 
     render(<LoginPage />);
@@ -220,9 +179,6 @@ describe("LoginPage", () => {
       screen.getByText("Unverified email: test@example.com")
     ).toBeInTheDocument();
     expect(screen.queryByTestId("login-form")).not.toBeInTheDocument();
-
-    // Should clear auth errors when changing states
-    expect(mockClearAuthError).toHaveBeenCalled();
   });
 
   it("switches back to login form when handleBackToLogin is called", async () => {
@@ -233,9 +189,6 @@ describe("LoginPage", () => {
     await user.click(screen.getByTestId("trigger-unverified"));
     expect(screen.getByTestId("unverified-email-alert")).toBeInTheDocument();
 
-    // Reset mockClearAuthError calls counter
-    mockClearAuthError.mockClear();
-
     // Go back to login form
     await user.click(screen.getByTestId("back-to-login"));
 
@@ -244,19 +197,6 @@ describe("LoginPage", () => {
     expect(
       screen.queryByTestId("unverified-email-alert")
     ).not.toBeInTheDocument();
-
-    // Should clear auth errors when changing states
-    expect(mockClearAuthError).toHaveBeenCalled();
-  });
-
-  it("cleans up errors when unmounting", () => {
-    const { unmount } = render(<LoginPage />);
-
-    // Unmount the component
-    unmount();
-
-    // Verify cleanup was called
-    expect(mockClearAuthError).toHaveBeenCalled();
   });
 
   it("has the correct links in the footer", () => {

@@ -1,18 +1,22 @@
 // frontend/src/components/layout/Navbar.tsx
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+// import { useAuth } from "../../hooks/useAuth";
 import { useState } from "react";
-
+import { useAuthStore } from "../../store/authStore";
 /**
  * Navigation bar component with responsive design and authentication state handling
  */
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  console.log("Navbar rendered");
+  // const { isAuthenticated, logout } = useAuth();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
+
     navigate("/login");
   };
 
@@ -36,7 +40,7 @@ const Navbar = () => {
               >
                 Home
               </Link>
-              {user && (
+              {isAuthenticated && (
                 <Link
                   to="/dashboard"
                   className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
@@ -50,7 +54,7 @@ const Navbar = () => {
           {/* Right Navigation - Desktop */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             <div className="flex items-center space-x-2">
-              {user ? (
+              {isAuthenticated ? (
                 <>
                   <Link
                     to="/profile"
@@ -138,7 +142,7 @@ const Navbar = () => {
           >
             Home
           </Link>
-          {user && (
+          {isAuthenticated && (
             <Link
               to="/dashboard"
               className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
@@ -146,7 +150,7 @@ const Navbar = () => {
               Dashboard
             </Link>
           )}
-          {user ? (
+          {isAuthenticated ? (
             <>
               <Link
                 to="/profile"
@@ -182,5 +186,5 @@ const Navbar = () => {
     </nav>
   );
 };
-
+// Navbar.whyDidYouRender = true;
 export default Navbar;

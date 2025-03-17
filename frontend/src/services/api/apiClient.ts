@@ -1,31 +1,20 @@
 import axios, { AxiosError, AxiosInstance } from "axios";
-import { API_URL } from "./index";
-import { StorageKeys } from "../../types";
+import { getApiConfig } from "../../config/apiConfig";
 import { ErrorType, createAppError, AppError } from "../../types/errors";
+import { getAuthToken, useAuthStore } from "../../store/authStore";
+import { ApiErrorResponse } from "../../types/apiTypes";
 
-// Types
-export type ApiErrorResponse = {
-  success: false;
-  message: string;
-  errors?: Record<string, string>;
-};
-
-export type ApiSuccessResponse<T> = {
-  success: true;
-  message: string;
-  data: T;
-};
-
+const { baseUrl } = getApiConfig();
 // Create axios instance with default configuration
 const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || API_URL,
+  baseURL: baseUrl || "http://localhost:5000/api",
   headers: { "Content-Type": "application/json" },
 });
 
 // Request interceptor for adding auth token to headers
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(StorageKeys.TOKEN);
+    const token = getAuthToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -85,6 +74,15 @@ apiClient.interceptors.response.use(
               data?.errors,
               error
             );
+          } else if (
+            data?.message?.toLowerCase().includes("incorrect current password")
+          ) {
+            appError = createAppError(
+              ErrorType.PROFILE_INCORRECT_PASSWORD,
+              errorMessage,
+              data?.errors,
+              error
+            );
           } else if (data?.errors) {
             appError = createAppError(
               ErrorType.VALIDATION_ERROR,
@@ -110,6 +108,7 @@ apiClient.interceptors.response.use(
             data?.errors,
             error
           );
+          useAuthStore.getState().logout();
           break;
 
         // 403 Forbidden

@@ -1,13 +1,14 @@
+// frontend/src/pages/auth/RegisterPage.test.tsx
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RegisterPage from "./RegisterPage";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 
 // Mock react-router-dom
 const mockNavigate = vi.fn();
-
 vi.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
   Link: ({ children, to, className }) => (
@@ -17,24 +18,20 @@ vi.mock("react-router-dom", () => ({
   ),
 }));
 
-// Mock the auth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
-  return {
-    ...actual,
-    useAuth: vi.fn(),
-  };
-});
+// Mock Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
 
 // Mock the components used by RegisterPage
 vi.mock("../../components/auth/RegisterForm", () => ({
   default: ({ onRegistrationSuccess }) => (
     <div data-testid="register-form">
       <button
-        data-testid="trigger-success"
+        data-testid="trigger-registration-success"
         onClick={() => onRegistrationSuccess("test@example.com")}
       >
-        Trigger Registration Success
+        Submit Registration
       </button>
     </div>
   ),
@@ -43,7 +40,7 @@ vi.mock("../../components/auth/RegisterForm", () => ({
 vi.mock("../../components/auth/RegistrationSuccessAlert", () => ({
   default: ({ email }) => (
     <div data-testid="registration-success-alert">
-      <p>Registration successful for: {email}</p>
+      <p>Registration success for: {email}</p>
     </div>
   ),
 }));
@@ -59,30 +56,36 @@ vi.mock("../../components/auth/AuthCard", () => ({
   ),
 }));
 
+// Mock AuthFooter component
+vi.mock("../../components/auth/AuthFooter", () => ({
+  default: ({ showLogin, showResendVerification }) => (
+    <div data-testid="auth-footer">
+      {showLogin && <a href="/login">Sign in</a>}
+      {showResendVerification && (
+        <a href="/resend-verification">Resend verification email</a>
+      )}
+    </div>
+  ),
+}));
+
 describe("RegisterPage", () => {
-  const mockClearAuthError = vi.fn();
+  const mockClearError = vi.fn();
 
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
+    console.log = vi.fn(); // Suppress console.log
 
-    // Mock useAuth with default values
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      user: null,
-      clearAuthError: mockClearAuthError,
-      loading: false,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Setup default mock state with clearError spy
+    const mockState = createMockAuthState({
+      clearError: mockClearError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
     });
   });
 
@@ -95,16 +98,10 @@ describe("RegisterPage", () => {
       screen.getByText("Fill in your details to register")
     ).toBeInTheDocument();
 
-    // Check that footer contains links
-    const footer = screen.getByTestId("auth-card-footer");
-    expect(footer).toContainElement(
-      screen.getByText(/Already have an account/i)
-    );
-    expect(footer).toContainElement(screen.getByText("Sign in"));
-    expect(footer).toContainElement(
-      screen.getByText(/Need to verify your email/i)
-    );
-    expect(footer).toContainElement(screen.getByText("Resend verification"));
+    // Check that footer contains expected elements
+    expect(screen.getByTestId("auth-footer")).toBeInTheDocument();
+    expect(screen.getByText("Sign in")).toBeInTheDocument();
+    expect(screen.getByText("Resend verification email")).toBeInTheDocument();
   });
 
   it("renders RegisterForm by default", () => {
@@ -116,30 +113,18 @@ describe("RegisterPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("redirects to dashboard if user is already logged in", async () => {
-    // Mock a logged-in user
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      user: {
-        id: "1",
-        email: "user@example.com",
-        firstName: "Test",
-        lastName: "User",
-        isEmailVerified: true,
-      },
-      clearAuthError: mockClearAuthError,
-      loading: false,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
+  it("redirects to dashboard if user is already authenticated", async () => {
+    // Mock authenticated user state
+    const authenticatedState = createMockAuthState({
       isAuthenticated: true,
-      isEmailVerified: true,
-      hasAuthError: vi.fn().mockReturnValue(false),
+      clearError: mockClearError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(authenticatedState);
+      }
+      return authenticatedState;
     });
 
     render(<RegisterPage />);
@@ -152,7 +137,7 @@ describe("RegisterPage", () => {
     });
   });
 
-  it("switches to success state when handleRegistrationSuccess is called", async () => {
+  it("shows registration success alert after successful registration", async () => {
     const user = userEvent.setup();
     render(<RegisterPage />);
 
@@ -160,29 +145,32 @@ describe("RegisterPage", () => {
     expect(screen.getByTestId("register-form")).toBeInTheDocument();
 
     // Trigger registration success
-    await user.click(screen.getByTestId("trigger-success"));
+    await user.click(screen.getByTestId("trigger-registration-success"));
 
-    // Should now show the success alert with the correct email
+    // Should now show the registration success alert with the correct email
     expect(
       screen.getByTestId("registration-success-alert")
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Registration successful for: test@example.com")
+      screen.getByText("Registration success for: test@example.com")
     ).toBeInTheDocument();
     expect(screen.queryByTestId("register-form")).not.toBeInTheDocument();
 
-    // Should clear auth errors when changing states
-    expect(mockClearAuthError).toHaveBeenCalled();
+    // Should clear auth errors
+    expect(mockClearError).toHaveBeenCalled();
   });
 
   it("cleans up errors when unmounting", () => {
     const { unmount } = render(<RegisterPage />);
 
+    // Reset calls count before unmount
+    mockClearError.mockClear();
+
     // Unmount the component
     unmount();
 
     // Verify cleanup was called
-    expect(mockClearAuthError).toHaveBeenCalled();
+    expect(mockClearError).toHaveBeenCalled();
   });
 
   it("has the correct links in the footer", () => {
@@ -193,7 +181,7 @@ describe("RegisterPage", () => {
     expect(loginLink).toHaveAttribute("href", "/login");
 
     // Check resend verification link
-    const resendLink = screen.getByText("Resend verification");
+    const resendLink = screen.getByText("Resend verification email");
     expect(resendLink).toHaveAttribute("href", "/resend-verification");
   });
 });

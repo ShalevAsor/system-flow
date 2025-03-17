@@ -1,5 +1,3 @@
-// frontend/src/types/errors.ts
-
 /**
  * Enum for categorizing different types of errors
  */
@@ -12,6 +10,8 @@ export enum ErrorType {
   AUTH_EMAIL_ALREADY_IN_USE = "auth/email-already-in-use",
   AUTH_INVALID_RESET_TOKEN = "auth/invalid-reset-token",
   AUTH_FORBIDDEN = "auth/forbidden",
+  // Profile-related errors
+  PROFILE_INCORRECT_PASSWORD = "profile/incorrect-password",
   // Form validation errors
   VALIDATION_ERROR = "validation/error",
 

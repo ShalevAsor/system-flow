@@ -5,18 +5,49 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import LoginForm from "./LoginForm";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 import { ErrorType } from "../../types/errors";
 import * as ToastUtils from "../../utils/toast";
 
-// Mock the useAuth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
+// Mock React Query
+const mockMutateAsync = vi.fn();
+const mockUseMutation = vi.fn().mockImplementation(({ onSuccess, onError }) => {
+  // Store callback references for testing
+  if (onSuccess) globalThis.mockOnSuccess = onSuccess;
+  if (onError) globalThis.mockOnError = onError;
+
   return {
-    ...actual,
-    useAuth: vi.fn(),
+    mutateAsync: mockMutateAsync,
+    isPending: false,
   };
 });
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: (options) => mockUseMutation(options),
+  queryClient: {
+    invalidateQueries: vi.fn(),
+  },
+}));
+
+// Mock the Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
+
+// Mock the auth service
+vi.mock("../../services/api/authService", () => ({
+  default: {
+    login: vi.fn(),
+  },
+}));
+
+// Mock reactQuery.ts
+vi.mock("../../lib/reactQuery", () => ({
+  queryClient: {
+    invalidateQueries: vi.fn(),
+  },
+}));
 
 // Mock the toast utilities
 vi.mock("../../utils/toast", () => ({
@@ -24,33 +55,53 @@ vi.mock("../../utils/toast", () => ({
   toastError: vi.fn(),
 }));
 
+// Mock the hook form errors helper
+const mockHandleFormError = vi.fn();
+vi.mock("../../hooks/useFormError", () => ({
+  useFormError: () => ({
+    formError: null,
+    handleFormError: mockHandleFormError,
+    clearFormError: vi.fn(),
+  }),
+}));
+
 describe("LoginForm", () => {
   // Setup variables
   const mockLogin = vi.fn();
-  const mockClearAuthError = vi.fn();
+  const mockClearError = vi.fn();
+  const mockSetError = vi.fn();
   const mockOnUnverifiedEmail = vi.fn();
+
+  // Setup for manually triggering callbacks
+  globalThis.mockOnSuccess = null;
+  globalThis.mockOnError = null;
 
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default mock implementation for useAuth
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
+    // Reset global callbacks
+    globalThis.mockOnSuccess = null;
+    globalThis.mockOnError = null;
+
+    // Mock auth store with default state
+    const mockState = createMockAuthState({
       login: mockLogin,
-      loading: false,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+      clearError: mockClearError,
+      setError: mockSetError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
+    });
+
+    // Reset form error handling behavior
+    mockHandleFormError.mockImplementation((error) => {
+      // Return the error type for component to handle
+      return error.type;
     });
   });
 
@@ -72,13 +123,6 @@ describe("LoginForm", () => {
     expect(
       screen.getByRole("button", { name: /sign in/i })
     ).toBeInTheDocument();
-
-    // Check for the forgot password link
-    expect(screen.getByText(/forgot password/i)).toBeInTheDocument();
-    expect(screen.getByText(/forgot password/i).closest("a")).toHaveAttribute(
-      "href",
-      "/forgot-password"
-    );
   });
 
   it("validates the form fields correctly", async () => {
@@ -109,7 +153,7 @@ describe("LoginForm", () => {
       ).toBeInTheDocument();
     });
 
-    // Try with short password
+    // Try with short password (if your schema validates password length)
     await user.clear(emailInput);
     await user.type(emailInput, "valid@example.com");
     await user.type(passwordInput, "short");
@@ -126,6 +170,17 @@ describe("LoginForm", () => {
     const user = userEvent.setup();
     renderLoginForm();
 
+    // Mock successful login with user that has token
+    const mockUserData = {
+      id: "user123",
+      email: "test@example.com",
+      firstName: "Test",
+      lastName: "User",
+      isEmailVerified: true,
+      token: "valid-token-123",
+    };
+    mockMutateAsync.mockResolvedValueOnce(mockUserData);
+
     // Get form elements
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/password/i);
@@ -138,36 +193,35 @@ describe("LoginForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify login was called with correct arguments
+    // Verify mutateAsync was called with correct arguments
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith(
-        "test@example.com",
-        "password12345"
-      );
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        email: "test@example.com",
+        password: "password12345",
+      });
+    });
+
+    // Trigger success callback
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess(mockUserData);
+      }
+    });
+
+    // Verify login was called with token and success toast was shown
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith("valid-token-123");
       expect(ToastUtils.toastSuccess).toHaveBeenCalledWith(
         "Logged in successfully!"
       );
     });
   });
 
-  it("shows loading state when submitting", async () => {
-    // Set loading state to true
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      login: mockLogin,
-      loading: true,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+  it("shows loading state when submitting", () => {
+    // Override React Query mock for this test
+    mockUseMutation.mockReturnValueOnce({
+      mutateAsync: mockMutateAsync,
+      isPending: true,
     });
 
     renderLoginForm();
@@ -185,10 +239,11 @@ describe("LoginForm", () => {
     renderLoginForm();
 
     // Setup error scenario
-    mockLogin.mockRejectedValueOnce({
+    const authError = {
       type: ErrorType.AUTH_INVALID_CREDENTIALS,
       message: "Invalid email or password",
-    });
+    };
+    mockMutateAsync.mockRejectedValueOnce(authError);
 
     // Get form elements
     const emailInput = screen.getByLabelText(/email/i);
@@ -200,11 +255,16 @@ describe("LoginForm", () => {
     await user.type(passwordInput, "password12345");
     await user.click(submitButton);
 
-    // Verify error is displayed
+    // Trigger error callback
     await waitFor(() => {
-      expect(
-        screen.getByText(/invalid email or password/i)
-      ).toBeInTheDocument();
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(authError);
+      }
+    });
+
+    // Verify error handling
+    await waitFor(() => {
+      expect(mockSetError).toHaveBeenCalledWith(authError);
     });
   });
 
@@ -213,10 +273,11 @@ describe("LoginForm", () => {
     renderLoginForm();
 
     // Setup unverified email error scenario
-    mockLogin.mockRejectedValueOnce({
+    const unverifiedError = {
       type: ErrorType.AUTH_EMAIL_UNVERIFIED,
       message: "Please verify your email before logging in",
-    });
+    };
+    mockMutateAsync.mockRejectedValueOnce(unverifiedError);
 
     // Get form elements
     const emailInput = screen.getByLabelText(/email/i);
@@ -228,25 +289,12 @@ describe("LoginForm", () => {
     await user.type(passwordInput, "password12345");
     await user.click(submitButton);
 
-    // Verify error is displayed and callback is called
+    // Verify onUnverifiedEmail callback is called
     await waitFor(() => {
-      expect(
-        screen.getByText(/please verify your email before logging in/i)
-      ).toBeInTheDocument();
       expect(mockOnUnverifiedEmail).toHaveBeenCalledWith(
         "unverified@example.com"
       );
     });
-  });
-
-  it("cleans up errors when unmounting", async () => {
-    const { unmount } = renderLoginForm();
-
-    // Unmount the component
-    unmount();
-
-    // Verify cleanup was called
-    expect(mockClearAuthError).toHaveBeenCalled();
   });
 
   it("clears errors when form is submitted", async () => {
@@ -264,6 +312,6 @@ describe("LoginForm", () => {
     await user.click(submitButton);
 
     // Verify errors were cleared
-    expect(mockClearAuthError).toHaveBeenCalled();
+    expect(mockClearError).toHaveBeenCalled();
   });
 });

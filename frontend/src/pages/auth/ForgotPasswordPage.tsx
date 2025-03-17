@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import AuthCard from "../../components/auth/AuthCard";
+import AuthFooter from "../../components/auth/AuthFooter";
 import ForgotPasswordForm from "../../components/auth/ForgotPasswordForm";
 import SuccessStateCard from "../../components/auth/SuccessStateCard";
 
@@ -8,42 +8,28 @@ import SuccessStateCard from "../../components/auth/SuccessStateCard";
  * Forgot password page component
  */
 const ForgotPasswordPage = () => {
-  const [isSuccess, setIsSuccess] = useState(false);
+  // We can use a single piece of state - if email exists, we're in success state
   const [sentToEmail, setSentToEmail] = useState("");
 
   // Handle successful form submission
   const handleSuccess = (email: string) => {
-    setIsSuccess(true);
     setSentToEmail(email);
   };
 
-  // Footer links
-  const footerContent = (
-    <div className="text-center space-y-2">
-      <p className="text-gray-600">
-        <Link
-          to="/login"
-          className="text-blue-600 hover:text-blue-500 font-medium"
-        >
-          Back to Login
-        </Link>
-      </p>
-      <p className="text-gray-600 text-sm">
-        Need help?{" "}
-        <a href="#" className="text-blue-600 hover:text-blue-500">
-          Contact Support
-        </a>
-      </p>
-    </div>
-  );
-
   // Success state - show after reset email is sent
-  if (isSuccess) {
+  if (sentToEmail) {
     return (
       <AuthCard
         title="Reset Link Sent"
         subtitle="Check your inbox for the password reset link"
-        footer={footerContent}
+        footer={
+          <AuthFooter
+            showLogin
+            customText={{
+              loginText: "Back to Login",
+            }}
+          />
+        }
       >
         <SuccessStateCard
           title="Reset Link Sent"
@@ -66,7 +52,14 @@ const ForgotPasswordPage = () => {
     <AuthCard
       title="Forgot Password"
       subtitle="Enter your email to receive a password reset link"
-      footer={footerContent}
+      footer={
+        <AuthFooter
+          showLogin
+          customText={{
+            loginText: "Back to Login",
+          }}
+        />
+      }
     >
       <ForgotPasswordForm onSuccess={handleSuccess} />
     </AuthCard>

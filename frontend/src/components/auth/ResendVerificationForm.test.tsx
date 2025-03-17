@@ -3,17 +3,38 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ResendVerificationForm from "./ResendVerificationForm";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 import * as ToastUtils from "../../utils/toast";
 
-// Mock the useAuth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
+// Mock React Query
+const mockMutateAsync = vi.fn();
+const mockUseMutation = vi.fn().mockImplementation(({ onSuccess, onError }) => {
+  // Store callback references for testing
+  if (onSuccess) globalThis.mockOnSuccess = onSuccess;
+  if (onError) globalThis.mockOnError = onError;
+
   return {
-    ...actual,
-    useAuth: vi.fn(),
+    mutateAsync: mockMutateAsync,
+    isPending: false,
   };
 });
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: (options) => mockUseMutation(options),
+}));
+
+// Mock the Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
+
+// Mock the auth service
+vi.mock("../../services/api/authService", () => ({
+  default: {
+    resendVerificationEmail: vi.fn(),
+  },
+}));
 
 // Mock the toast utilities
 vi.mock("../../utils/toast", () => ({
@@ -21,34 +42,46 @@ vi.mock("../../utils/toast", () => ({
   toastError: vi.fn(),
 }));
 
+// Mock the hook form errors helper
+const mockHandleFormError = vi.fn();
+vi.mock("../../hooks/useFormError", () => ({
+  useFormError: () => ({
+    formError: null,
+    handleFormError: mockHandleFormError,
+    clearFormError: vi.fn(),
+  }),
+}));
+
 describe("ResendVerificationForm", () => {
   // Setup variables
-  const mockResendVerificationEmail = vi.fn();
-  const mockClearAuthError = vi.fn();
+  const mockClearError = vi.fn();
+  const mockSetError = vi.fn();
   const mockOnSuccess = vi.fn();
   const mockOnAlreadyVerified = vi.fn();
+
+  // Setup for manually triggering callbacks
+  globalThis.mockOnSuccess = null;
+  globalThis.mockOnError = null;
 
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default mock implementation for useAuth
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      resendVerificationEmail: mockResendVerificationEmail,
-      loading: false,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Reset global callbacks
+    globalThis.mockOnSuccess = null;
+    globalThis.mockOnError = null;
+
+    // Mock auth store with default state
+    const mockState = createMockAuthState({
+      clearError: mockClearError,
+      setError: mockSetError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
     });
   });
 
@@ -99,7 +132,7 @@ describe("ResendVerificationForm", () => {
     renderResendVerificationForm();
 
     // Setup success response
-    mockResendVerificationEmail.mockResolvedValueOnce(
+    mockMutateAsync.mockResolvedValueOnce(
       "Verification email sent successfully"
     );
 
@@ -115,11 +148,24 @@ describe("ResendVerificationForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify resendVerificationEmail was called with correct arguments
+    // Verify mutateAsync was called with correct arguments
     await waitFor(() => {
-      expect(mockResendVerificationEmail).toHaveBeenCalledWith(
-        "test@example.com"
-      );
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        email: "test@example.com",
+      });
+    });
+
+    // Trigger the success callback
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess("Verification email sent successfully", {
+          email: "test@example.com",
+        });
+      }
+    });
+
+    // Verify success handler was called
+    await waitFor(() => {
       expect(mockOnSuccess).toHaveBeenCalledWith("test@example.com");
       expect(mockOnAlreadyVerified).not.toHaveBeenCalled();
     });
@@ -130,9 +176,7 @@ describe("ResendVerificationForm", () => {
     renderResendVerificationForm();
 
     // Setup already verified response
-    mockResendVerificationEmail.mockResolvedValueOnce(
-      "Email is already verified"
-    );
+    mockMutateAsync.mockResolvedValueOnce("Email is already verified");
 
     // Get form elements
     const emailInput = screen.getByLabelText("Email");
@@ -146,11 +190,24 @@ describe("ResendVerificationForm", () => {
     // Submit the form
     await user.click(submitButton);
 
+    // Verify mutateAsync was called with correct arguments
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        email: "verified@example.com",
+      });
+    });
+
+    // Trigger the success callback with "already verified" message
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess("Email is already verified", {
+          email: "verified@example.com",
+        });
+      }
+    });
+
     // Verify onAlreadyVerified was called instead of onSuccess
     await waitFor(() => {
-      expect(mockResendVerificationEmail).toHaveBeenCalledWith(
-        "verified@example.com"
-      );
       expect(mockOnAlreadyVerified).toHaveBeenCalledWith(
         "verified@example.com"
       );
@@ -159,23 +216,10 @@ describe("ResendVerificationForm", () => {
   });
 
   it("shows loading state when submitting", () => {
-    // Set loading state to true
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      resendVerificationEmail: mockResendVerificationEmail,
-      loading: true,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Override React Query mock for this test
+    mockUseMutation.mockReturnValueOnce({
+      mutateAsync: mockMutateAsync,
+      isPending: true,
     });
 
     renderResendVerificationForm();
@@ -193,11 +237,11 @@ describe("ResendVerificationForm", () => {
     renderResendVerificationForm();
 
     // Setup error scenario
-    const errorMessage = "User not found with this email";
-    mockResendVerificationEmail.mockRejectedValueOnce({
+    const errorResponse = {
       type: "resource/not-found",
-      message: errorMessage,
-    });
+      message: "User not found with this email",
+    };
+    mockMutateAsync.mockRejectedValueOnce(errorResponse);
 
     // Get form elements
     const emailInput = screen.getByLabelText("Email");
@@ -211,10 +255,19 @@ describe("ResendVerificationForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify error is displayed and error toast is shown
+    // Trigger the error callback
     await waitFor(() => {
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
-      expect(ToastUtils.toastError).toHaveBeenCalledWith(errorMessage);
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(errorResponse);
+      }
+    });
+
+    // Verify error handling
+    await waitFor(() => {
+      expect(mockSetError).toHaveBeenCalledWith(errorResponse);
+      expect(ToastUtils.toastError).toHaveBeenCalledWith(
+        "User not found with this email"
+      );
     });
   });
 
@@ -235,6 +288,6 @@ describe("ResendVerificationForm", () => {
     await user.click(submitButton);
 
     // Verify errors were cleared
-    expect(mockClearAuthError).toHaveBeenCalled();
+    expect(mockClearError).toHaveBeenCalled();
   });
 });

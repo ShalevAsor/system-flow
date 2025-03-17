@@ -3,17 +3,38 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ForgotPasswordForm from "./ForgotPasswordForm";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 import * as ToastUtils from "../../utils/toast";
 
-// Mock the useAuth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
+// Mock React Query
+const mockMutateAsync = vi.fn();
+const mockUseMutation = vi.fn().mockImplementation(({ onSuccess, onError }) => {
+  // Store callback references for testing
+  if (onSuccess) globalThis.mockOnSuccess = onSuccess;
+  if (onError) globalThis.mockOnError = onError;
+
   return {
-    ...actual,
-    useAuth: vi.fn(),
+    mutateAsync: mockMutateAsync,
+    isPending: false,
   };
 });
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: (options) => mockUseMutation(options),
+}));
+
+// Mock the Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
+
+// Mock the auth service
+vi.mock("../../services/api/authService", () => ({
+  default: {
+    requestPasswordReset: vi.fn(),
+  },
+}));
 
 // Mock the toast utilities
 vi.mock("../../utils/toast", () => ({
@@ -21,33 +42,45 @@ vi.mock("../../utils/toast", () => ({
   toastError: vi.fn(),
 }));
 
+// Mock the hook form errors helper
+const mockHandleFormError = vi.fn();
+vi.mock("../../hooks/useFormError", () => ({
+  useFormError: () => ({
+    formError: null,
+    handleFormError: mockHandleFormError,
+    clearFormError: vi.fn(),
+  }),
+}));
+
 describe("ForgotPasswordForm", () => {
   // Setup variables
-  const mockRequestPasswordReset = vi.fn();
-  const mockClearAuthError = vi.fn();
+  const mockClearError = vi.fn();
+  const mockSetError = vi.fn();
   const mockOnSuccess = vi.fn();
+
+  // Setup for manually triggering callbacks
+  globalThis.mockOnSuccess = null;
+  globalThis.mockOnError = null;
 
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default mock implementation for useAuth
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      requestPasswordReset: mockRequestPasswordReset,
-      loading: false,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Reset global callbacks
+    globalThis.mockOnSuccess = null;
+    globalThis.mockOnError = null;
+
+    // Mock auth store with default state
+    const mockState = createMockAuthState({
+      clearError: mockClearError,
+      setError: mockSetError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
     });
   });
 
@@ -92,6 +125,9 @@ describe("ForgotPasswordForm", () => {
     const user = userEvent.setup();
     renderForgotPasswordForm();
 
+    // Mock successful response
+    mockMutateAsync.mockResolvedValueOnce("Password reset email sent");
+
     // Get form elements
     const emailInput = screen.getByLabelText("Email");
     const submitButton = screen.getByRole("button", {
@@ -104,34 +140,36 @@ describe("ForgotPasswordForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify resetPassword was called with correct arguments
+    // Verify mutateAsync was called with correct arguments
     await waitFor(() => {
-      expect(mockRequestPasswordReset).toHaveBeenCalledWith("test@example.com");
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        email: "test@example.com",
+      });
+    });
+
+    // Trigger success callback
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess("Password reset email sent", {
+          email: "test@example.com",
+        });
+      }
+    });
+
+    // Verify success handlers were called
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalledWith("test@example.com");
       expect(ToastUtils.toastSuccess).toHaveBeenCalledWith(
         "Password reset email sent successfully"
       );
-      expect(mockOnSuccess).toHaveBeenCalledWith("test@example.com");
     });
   });
 
   it("shows loading state when submitting", () => {
-    // Set loading state to true
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      requestPasswordReset: mockRequestPasswordReset,
-      loading: true,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Override React Query mock for this test
+    mockUseMutation.mockReturnValueOnce({
+      mutateAsync: mockMutateAsync,
+      isPending: true,
     });
 
     renderForgotPasswordForm();
@@ -149,11 +187,11 @@ describe("ForgotPasswordForm", () => {
     renderForgotPasswordForm();
 
     // Setup error scenario
-    const errorMessage = "User not found with this email";
-    mockRequestPasswordReset.mockRejectedValueOnce({
+    const errorResponse = {
       type: "resource/not-found",
-      message: errorMessage,
-    });
+      message: "User not found with this email",
+    };
+    mockMutateAsync.mockRejectedValueOnce(errorResponse);
 
     // Get form elements
     const emailInput = screen.getByLabelText("Email");
@@ -167,9 +205,16 @@ describe("ForgotPasswordForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify error is displayed
+    // Trigger error callback
     await waitFor(() => {
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(errorResponse);
+      }
+    });
+
+    // Verify error handling
+    await waitFor(() => {
+      expect(mockSetError).toHaveBeenCalledWith(errorResponse);
     });
   });
 
@@ -190,6 +235,6 @@ describe("ForgotPasswordForm", () => {
     await user.click(submitButton);
 
     // Verify errors were cleared
-    expect(mockClearAuthError).toHaveBeenCalled();
+    expect(mockClearError).toHaveBeenCalled();
   });
 });

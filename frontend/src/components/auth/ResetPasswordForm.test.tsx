@@ -3,18 +3,39 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ResetPasswordForm from "./ResetPasswordForm";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 import { ErrorType } from "../../types/errors";
 import * as ToastUtils from "../../utils/toast";
 
-// Mock the useAuth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
+// Mock React Query
+const mockMutateAsync = vi.fn();
+const mockUseMutation = vi.fn().mockImplementation(({ onSuccess, onError }) => {
+  // Store callback references for testing
+  if (onSuccess) globalThis.mockOnSuccess = onSuccess;
+  if (onError) globalThis.mockOnError = onError;
+
   return {
-    ...actual,
-    useAuth: vi.fn(),
+    mutateAsync: mockMutateAsync,
+    isPending: false,
   };
 });
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: (options) => mockUseMutation(options),
+}));
+
+// Mock the Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
+
+// Mock the auth service
+vi.mock("../../services/api/authService", () => ({
+  default: {
+    resetPassword: vi.fn(),
+  },
+}));
 
 // Mock the toast utilities
 vi.mock("../../utils/toast", () => ({
@@ -22,35 +43,54 @@ vi.mock("../../utils/toast", () => ({
   toastError: vi.fn(),
 }));
 
+// Mock the hook form errors helper
+const mockHandleFormError = vi.fn().mockImplementation((error) => {
+  // If it's an invalid token error, return that type so component can handle it
+  if (error.type === ErrorType.AUTH_INVALID_RESET_TOKEN) {
+    return error.type;
+  }
+  return null;
+});
+
+vi.mock("../../hooks/useFormError", () => ({
+  useFormError: () => ({
+    formError: null,
+    handleFormError: mockHandleFormError,
+    clearFormError: vi.fn(),
+  }),
+}));
+
 describe("ResetPasswordForm", () => {
   // Setup variables
-  const mockResetPassword = vi.fn();
-  const mockClearAuthError = vi.fn();
+  const mockClearError = vi.fn();
+  const mockSetError = vi.fn();
   const mockOnSuccess = vi.fn();
   const mockOnInvalidToken = vi.fn();
   const mockToken = "valid-reset-token-123";
+
+  // Setup for manually triggering callbacks
+  globalThis.mockOnSuccess = null;
+  globalThis.mockOnError = null;
 
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default mock implementation for useAuth
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      resetPassword: mockResetPassword,
-      loading: false,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Reset global callbacks
+    globalThis.mockOnSuccess = null;
+    globalThis.mockOnError = null;
+
+    // Mock auth store with default state
+    const mockState = createMockAuthState({
+      clearError: mockClearError,
+      setError: mockSetError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
     });
   });
 
@@ -126,7 +166,7 @@ describe("ResetPasswordForm", () => {
     renderResetPasswordForm();
 
     // Setup success response
-    mockResetPassword.mockResolvedValueOnce("Password reset successfully");
+    mockMutateAsync.mockResolvedValueOnce("Password reset successfully");
 
     // Get form elements
     const passwordInput = screen.getByLabelText("New Password");
@@ -142,9 +182,22 @@ describe("ResetPasswordForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify resetPassword was called with correct arguments
+    // Verify mutateAsync was called with correct arguments
     await waitFor(() => {
-      expect(mockResetPassword).toHaveBeenCalledWith(mockToken, "ValidPass123");
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        token: mockToken,
+        newPassword: "ValidPass123",
+      });
+    });
+
+    // Trigger the success callback
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess("Password reset successfully");
+      }
+    });
+
+    await waitFor(() => {
       expect(ToastUtils.toastSuccess).toHaveBeenCalledWith(
         "Password reset successfully"
       );
@@ -153,23 +206,10 @@ describe("ResetPasswordForm", () => {
   });
 
   it("shows loading state when submitting", () => {
-    // Set loading state to true
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      resetPassword: mockResetPassword,
-      loading: true,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Override React Query mock for this test
+    mockUseMutation.mockReturnValueOnce({
+      mutateAsync: mockMutateAsync,
+      isPending: true,
     });
 
     renderResetPasswordForm();
@@ -189,10 +229,11 @@ describe("ResetPasswordForm", () => {
     renderResetPasswordForm();
 
     // Setup invalid token error
-    mockResetPassword.mockRejectedValueOnce({
+    const invalidTokenError = {
       type: ErrorType.AUTH_INVALID_RESET_TOKEN,
       message: "Invalid or expired reset token",
-    });
+    };
+    mockMutateAsync.mockRejectedValueOnce(invalidTokenError);
 
     // Get form elements
     const passwordInput = screen.getByLabelText("New Password");
@@ -208,12 +249,23 @@ describe("ResetPasswordForm", () => {
     // Submit the form
     await user.click(submitButton);
 
+    // The mockHandleFormError function will automatically trigger mockOnInvalidToken
+    // when it detects an ERROR_AUTH_INVALID_RESET_TOKEN
+
+    // Trigger error callback
+    await waitFor(() => {
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(invalidTokenError);
+      }
+    });
+
     // Verify error handling
     await waitFor(() => {
-      expect(mockOnInvalidToken).toHaveBeenCalled();
+      expect(mockSetError).toHaveBeenCalledWith(invalidTokenError);
       expect(ToastUtils.toastError).toHaveBeenCalledWith(
         "Invalid or expired reset token"
       );
+      expect(mockOnInvalidToken).toHaveBeenCalled();
     });
   });
 
@@ -222,10 +274,11 @@ describe("ResetPasswordForm", () => {
     renderResetPasswordForm();
 
     // Setup generic error
-    mockResetPassword.mockRejectedValueOnce({
+    const serverError = {
       type: ErrorType.API_SERVER_ERROR,
       message: "Server error occurred",
-    });
+    };
+    mockMutateAsync.mockRejectedValueOnce(serverError);
 
     // Get form elements
     const passwordInput = screen.getByLabelText("New Password");
@@ -241,24 +294,21 @@ describe("ResetPasswordForm", () => {
     // Submit the form
     await user.click(submitButton);
 
+    // Manually trigger the onError callback to simulate what happens in the component
+    await waitFor(() => {
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(serverError);
+      }
+    });
+
     // Verify error handling
     await waitFor(() => {
-      expect(screen.getByText(/server error occurred/i)).toBeInTheDocument();
+      expect(mockSetError).toHaveBeenCalledWith(serverError);
       expect(ToastUtils.toastError).toHaveBeenCalledWith(
         "Server error occurred"
       );
       expect(mockOnInvalidToken).not.toHaveBeenCalled(); // Should not trigger invalid token callback
     });
-  });
-
-  it("cleans up errors when unmounting", () => {
-    const { unmount } = renderResetPasswordForm();
-
-    // Unmount the component
-    unmount();
-
-    // Verify cleanup was called
-    expect(mockClearAuthError).toHaveBeenCalled();
   });
 
   it("clears errors when form is submitted", async () => {
@@ -280,6 +330,6 @@ describe("ResetPasswordForm", () => {
     await user.click(submitButton);
 
     // Verify errors were cleared
-    expect(mockClearAuthError).toHaveBeenCalled();
+    expect(mockClearError).toHaveBeenCalled();
   });
 });

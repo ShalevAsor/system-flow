@@ -15,7 +15,7 @@ const config = {
     (() => {
       throw new Error("JWT_SECRET is not defined");
     })(),
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "1d",
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "1h",
   REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
 
   // Email configuration

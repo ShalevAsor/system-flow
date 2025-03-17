@@ -23,6 +23,8 @@ export const registerValidationRules = [
     .withMessage("First name must be at least 2 characters long")
     .isLength({ max: 50 })
     .withMessage("First name cannot exceed 50 characters")
+    .matches(/^[a-zA-Z\s]*$/)
+    .withMessage("First name must contain only letters and spaces")
     .trim(),
 
   body("lastName")
@@ -32,6 +34,8 @@ export const registerValidationRules = [
     .withMessage("Last name must be at least 2 characters long")
     .isLength({ max: 50 })
     .withMessage("Last name cannot exceed 50 characters")
+    .matches(/^[a-zA-Z\s]*$/)
+    .withMessage("Last name must contain only letters and spaces")
     .trim(),
 ];
 

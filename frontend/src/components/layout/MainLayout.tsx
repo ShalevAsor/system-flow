@@ -8,6 +8,8 @@ import Footer from "./Footer";
  * accessible layout structure including navigation and footer
  */
 const MainLayout = () => {
+  console.log("MainLayout rendering");
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Navbar - fixed at the top */}

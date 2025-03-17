@@ -72,6 +72,24 @@ vi.mock("../../components/auth/AuthCard", () => ({
   ),
 }));
 
+// Mock AuthFooter component
+vi.mock("../../components/auth/AuthFooter", () => ({
+  default: ({ showLogin, showRegister, customText }) => (
+    <div data-testid="auth-footer">
+      {showLogin && (
+        <a href="/login" data-testid="login-link">
+          {customText?.loginText || "Sign in"}
+        </a>
+      )}
+      {showRegister && (
+        <a href="/register" data-testid="register-link">
+          Create an account
+        </a>
+      )}
+    </div>
+  ),
+}));
+
 describe("ResendVerificationPage", () => {
   // Reset mocks before each test
   beforeEach(() => {
@@ -98,13 +116,18 @@ describe("ResendVerificationPage", () => {
   it("has the correct links in the footer", () => {
     render(<ResendVerificationPage />);
 
+    // Check for AuthFooter component
+    expect(screen.getByTestId("auth-footer")).toBeInTheDocument();
+
     // Check login link
-    const loginLink = screen.getByText("Back to Login");
+    const loginLink = screen.getByTestId("login-link");
     expect(loginLink).toHaveAttribute("href", "/login");
+    expect(loginLink).toHaveTextContent("Back to Login");
 
     // Check register link
-    const registerLink = screen.getByText("Register");
+    const registerLink = screen.getByTestId("register-link");
     expect(registerLink).toHaveAttribute("href", "/register");
+    expect(registerLink).toHaveTextContent("Create an account");
   });
 
   it("shows success state when verification email is sent", async () => {

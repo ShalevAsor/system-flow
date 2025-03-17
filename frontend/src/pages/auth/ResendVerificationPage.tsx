@@ -1,66 +1,41 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import AuthCard from "../../components/auth/AuthCard";
+import AuthFooter from "../../components/auth/AuthFooter";
 import ResendVerificationForm from "../../components/auth/ResendVerificationForm";
 import SuccessStateCard from "../../components/auth/SuccessStateCard";
 import { toastInfo } from "../../utils/toast";
 
 /**
- * Enum representing different states of the email verification flow
- */
-enum VerificationState {
-  FORM = "form",
-  EMAIL_SENT = "email_sent",
-  ALREADY_VERIFIED = "already_verified",
-}
-
-/**
  * Resend verification email page component
  */
 const ResendVerificationPage = () => {
-  const [verificationState, setVerificationState] = useState<VerificationState>(
-    VerificationState.FORM
-  );
+  console.log("ResendVerificationPage rendered");
+
+  // Simplified state - just track the current state and email
+  const [verificationState, setVerificationState] = useState<
+    "form" | "email_sent" | "already_verified"
+  >("form");
+
   const [email, setEmail] = useState("");
 
   // Handle successful form submission - email sent
   const handleEmailSent = (email: string) => {
     setEmail(email);
-    setVerificationState(VerificationState.EMAIL_SENT);
+    setVerificationState("email_sent");
     toastInfo("Verification email sent successfully!");
   };
 
   // Handle case where email is already verified
   const handleAlreadyVerified = (email: string) => {
     setEmail(email);
-    setVerificationState(VerificationState.ALREADY_VERIFIED);
+    setVerificationState("already_verified");
     toastInfo("Your email is already verified. You can log in now.");
   };
-
-  // Footer links
-  const footerContent = (
-    <div className="text-center space-y-2">
-      <p className="text-gray-600">
-        <Link
-          to="/login"
-          className="text-blue-600 hover:text-blue-500 font-medium"
-        >
-          Back to Login
-        </Link>
-      </p>
-      <p className="text-gray-600 text-sm">
-        Don't have an account?{" "}
-        <Link to="/register" className="text-blue-600 hover:text-blue-500">
-          Register
-        </Link>
-      </p>
-    </div>
-  );
 
   // Render the appropriate content based on verification state
   const renderContent = () => {
     switch (verificationState) {
-      case VerificationState.EMAIL_SENT:
+      case "email_sent":
         return (
           <SuccessStateCard
             title="Verification Email Sent"
@@ -71,7 +46,7 @@ const ResendVerificationPage = () => {
           />
         );
 
-      case VerificationState.ALREADY_VERIFIED:
+      case "already_verified":
         return (
           <SuccessStateCard
             title="Email Already Verified"
@@ -86,7 +61,7 @@ const ResendVerificationPage = () => {
           />
         );
 
-      case VerificationState.FORM:
+      case "form":
       default:
         return (
           <ResendVerificationForm
@@ -100,12 +75,12 @@ const ResendVerificationPage = () => {
   // Determine card title and subtitle based on state
   const getCardTitleInfo = () => {
     switch (verificationState) {
-      case VerificationState.EMAIL_SENT:
+      case "email_sent":
         return {
           title: "Verification Email Sent",
           subtitle: "Check your inbox for the verification link",
         };
-      case VerificationState.ALREADY_VERIFIED:
+      case "already_verified":
         return {
           title: "Email Already Verified",
           subtitle: "Your account is ready to use",
@@ -121,7 +96,19 @@ const ResendVerificationPage = () => {
   const { title, subtitle } = getCardTitleInfo();
 
   return (
-    <AuthCard title={title} subtitle={subtitle} footer={footerContent}>
+    <AuthCard
+      title={title}
+      subtitle={subtitle}
+      footer={
+        <AuthFooter
+          showLogin
+          showRegister
+          customText={{
+            loginText: "Back to Login",
+          }}
+        />
+      }
+    >
       {renderContent()}
     </AuthCard>
   );

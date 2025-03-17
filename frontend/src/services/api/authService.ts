@@ -1,53 +1,14 @@
-// frontend/src/services/api/authService.ts
 import apiClient from "./apiClient";
-import { StorageKeys } from "../../types";
-
-// Types - should match your backend types
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  isEmailVerified: boolean;
-  token?: string;
-}
-
-export interface AuthResponse {
-  success: boolean;
-  message: string;
-  data: User;
-}
-
-export interface MessageResponse {
-  success: boolean;
-  message: string;
-  data: null;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}
-
-export interface RequestPasswordResetRequest {
-  email: string;
-}
-
-export interface ResetPasswordRequest {
-  token: string;
-  newPassword: string;
-}
-
-export interface ResendVerificationRequest {
-  email: string;
-}
+import { User } from "../../types/userTypes";
+import {
+  AuthResponse,
+  MessageResponse,
+  LoginRequest,
+  RegisterRequest,
+  ResendVerificationRequest,
+  RequestPasswordResetRequest,
+  ResetPasswordRequest,
+} from "../../types/authTypes";
 
 const authService = {
   login: async (credentials: LoginRequest): Promise<User> => {
@@ -55,14 +16,7 @@ const authService = {
       "/auth/login",
       credentials
     );
-    const userData = response.data.data;
-
-    // Store token in localStorage
-    if (userData.token) {
-      localStorage.setItem(StorageKeys.TOKEN, userData.token);
-    }
-
-    return userData;
+    return response.data.data;
   },
 
   register: async (userData: RegisterRequest): Promise<User> => {
@@ -114,10 +68,6 @@ const authService = {
   getCurrentUser: async (): Promise<User> => {
     const response = await apiClient.get<AuthResponse>("/auth/me");
     return response.data.data;
-  },
-
-  logout: (): void => {
-    localStorage.removeItem(StorageKeys.TOKEN);
   },
 };
 

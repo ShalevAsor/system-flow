@@ -4,18 +4,39 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RegisterForm from "./RegisterForm";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 import { ErrorType } from "../../types/errors";
 import * as ToastUtils from "../../utils/toast";
 
-// Mock the useAuth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
+// Mock React Query
+const mockMutateAsync = vi.fn();
+const mockUseMutation = vi.fn().mockImplementation(({ onSuccess, onError }) => {
+  // Store callback references for testing
+  if (onSuccess) globalThis.mockOnSuccess = onSuccess;
+  if (onError) globalThis.mockOnError = onError;
+
   return {
-    ...actual,
-    useAuth: vi.fn(),
+    mutateAsync: mockMutateAsync,
+    isPending: false,
   };
 });
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: (options) => mockUseMutation(options),
+}));
+
+// Mock the Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
+
+// Mock the auth service
+vi.mock("../../services/api/authService", () => ({
+  default: {
+    register: vi.fn(),
+  },
+}));
 
 // Mock the toast utilities
 vi.mock("../../utils/toast", () => ({
@@ -23,33 +44,45 @@ vi.mock("../../utils/toast", () => ({
   toastError: vi.fn(),
 }));
 
+// Mock the hook form errors helper
+const mockHandleFormError = vi.fn();
+vi.mock("../../hooks/useFormError", () => ({
+  useFormError: () => ({
+    formError: null,
+    handleFormError: mockHandleFormError,
+    clearFormError: vi.fn(),
+  }),
+}));
+
 describe("RegisterForm", () => {
   // Setup variables
-  const mockRegister = vi.fn();
-  const mockClearAuthError = vi.fn();
+  const mockClearError = vi.fn();
+  const mockSetError = vi.fn();
   const mockOnRegistrationSuccess = vi.fn();
+
+  // Setup for manually triggering callbacks
+  globalThis.mockOnSuccess = null;
+  globalThis.mockOnError = null;
 
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default mock implementation for useAuth
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      register: mockRegister,
-      loading: false,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Reset global callbacks
+    globalThis.mockOnSuccess = null;
+    globalThis.mockOnError = null;
+
+    // Mock auth store with default state
+    const mockState = createMockAuthState({
+      clearError: mockClearError,
+      setError: mockSetError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
     });
   });
 
@@ -149,6 +182,16 @@ describe("RegisterForm", () => {
     const user = userEvent.setup();
     renderRegisterForm();
 
+    // Mock successful user registration
+    const mockRegisteredUser = {
+      id: "user-123",
+      email: "john.doe@example.com",
+      firstName: "John",
+      lastName: "Doe",
+      isEmailVerified: false,
+    };
+    mockMutateAsync.mockResolvedValueOnce(mockRegisteredUser);
+
     // Get form inputs
     const firstNameInput = screen.getByLabelText(/first name/i);
     const lastNameInput = screen.getByLabelText(/last name/i);
@@ -169,41 +212,39 @@ describe("RegisterForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify register was called with correct arguments
+    // Verify mutateAsync was called with correct arguments
     await waitFor(() => {
-      expect(mockRegister).toHaveBeenCalledWith(
-        "john.doe@example.com",
-        "SecurePass123",
-        "John",
-        "Doe"
-      );
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        email: "john.doe@example.com",
+        password: "SecurePass123",
+        firstName: "John",
+        lastName: "Doe",
+      });
+    });
+
+    // Trigger success callback
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess(mockRegisteredUser);
+      }
+    });
+
+    // Verify success handlers were called
+    await waitFor(() => {
       expect(mockOnRegistrationSuccess).toHaveBeenCalledWith(
         "john.doe@example.com"
       );
       expect(ToastUtils.toastSuccess).toHaveBeenCalledWith(
-        "Registration successful , please check your email"
+        "Registration successful, please check your email"
       );
     });
   });
 
   it("shows loading state when submitting", () => {
-    // Set loading state to true
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      register: mockRegister,
-      loading: true,
-      clearAuthError: mockClearAuthError,
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      resendVerificationEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Override React Query mock for this test
+    mockUseMutation.mockReturnValueOnce({
+      mutateAsync: mockMutateAsync,
+      isPending: true,
     });
 
     renderRegisterForm();
@@ -222,11 +263,12 @@ describe("RegisterForm", () => {
     const user = userEvent.setup();
     renderRegisterForm();
 
-    // Setup error scenario for email already in use
-    mockRegister.mockRejectedValueOnce({
+    // Setup error for email already in use
+    const emailInUseError = {
       type: ErrorType.AUTH_EMAIL_ALREADY_IN_USE,
       message: "Email address is already in use",
-    });
+    };
+    mockMutateAsync.mockRejectedValueOnce(emailInUseError);
 
     // Get form inputs
     const firstNameInput = screen.getByLabelText(/first name/i);
@@ -248,22 +290,17 @@ describe("RegisterForm", () => {
     // Submit the form
     await user.click(submitButton);
 
-    // Verify error is displayed
+    // Trigger error callback
     await waitFor(() => {
-      expect(
-        screen.getByText(/email address is already in use/i)
-      ).toBeInTheDocument();
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(emailInUseError);
+      }
     });
-  });
 
-  it("cleans up errors when unmounting", () => {
-    const { unmount } = renderRegisterForm();
-
-    // Unmount the component
-    unmount();
-
-    // Verify cleanup was called
-    expect(mockClearAuthError).toHaveBeenCalled();
+    // Verify error handling
+    await waitFor(() => {
+      expect(mockSetError).toHaveBeenCalledWith(emailInUseError);
+    });
   });
 
   it("clears errors when form is submitted", async () => {
@@ -291,6 +328,6 @@ describe("RegisterForm", () => {
     await user.click(submitButton);
 
     // Verify errors were cleared
-    expect(mockClearAuthError).toHaveBeenCalled();
+    expect(mockClearError).toHaveBeenCalled();
   });
 });

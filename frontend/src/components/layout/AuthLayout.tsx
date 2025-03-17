@@ -1,6 +1,5 @@
 // frontend/src/components/layout/AuthLayout.tsx
 import { Outlet } from "react-router-dom";
-import Navbar from "./Navbar";
 import Footer from "./Footer";
 
 /**
@@ -8,10 +7,11 @@ import Footer from "./Footer";
  * and provides a cleaner experience for login/register pages
  */
 const AuthLayout = () => {
+  console.log("AuthLayout rendered");
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Navbar at the top */}
-      <Navbar />
+      {/* <Navbar /> */}
 
       {/* Main content area - centered both horizontally and vertically */}
       <main className="flex-grow flex items-center justify-center">

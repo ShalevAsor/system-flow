@@ -54,6 +54,19 @@ vi.mock("../../components/auth/AuthCard", () => ({
   ),
 }));
 
+// Mock AuthFooter component
+vi.mock("../../components/auth/AuthFooter", () => ({
+  default: ({ showLogin, customText }) => (
+    <div data-testid="auth-footer">
+      {showLogin && (
+        <a href="/login" data-testid="login-link">
+          {customText?.loginText || "Sign in"}
+        </a>
+      )}
+    </div>
+  ),
+}));
+
 describe("ForgotPasswordPage", () => {
   // Reset mocks before each test
   beforeEach(() => {
@@ -77,10 +90,10 @@ describe("ForgotPasswordPage", () => {
     // Check that success state is not displayed
     expect(screen.queryByTestId("success-state-card")).not.toBeInTheDocument();
 
-    // Check that footer contains links
-    const footer = screen.getByTestId("auth-card-footer");
-    expect(footer).toContainElement(screen.getByText("Back to Login"));
-    expect(footer).toContainElement(screen.getByText("Contact Support"));
+    // Check that footer contains AuthFooter
+    expect(screen.getByTestId("auth-footer")).toBeInTheDocument();
+    expect(screen.getByTestId("login-link")).toBeInTheDocument();
+    expect(screen.getByText("Back to Login")).toBeInTheDocument();
   });
 
   it("transitions to success state when form is successfully submitted", async () => {
@@ -125,15 +138,12 @@ describe("ForgotPasswordPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("has the correct links in the footer", () => {
+  it("has the correct link in the footer", () => {
     render(<ForgotPasswordPage />);
 
     // Check login link
-    const loginLink = screen.getByText("Back to Login");
+    const loginLink = screen.getByTestId("login-link");
     expect(loginLink).toHaveAttribute("href", "/login");
-
-    // Check contact support link
-    const supportLink = screen.getByText("Contact Support");
-    expect(supportLink).toHaveAttribute("href", "#");
+    expect(loginLink).toHaveTextContent("Back to Login");
   });
 });

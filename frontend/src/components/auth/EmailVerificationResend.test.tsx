@@ -3,43 +3,76 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import EmailVerificationResend from "./EmailVerificationResend";
-import * as AuthHook from "../../hooks/useAuth";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 
-// Mock the useAuth hook
-vi.mock("../../hooks/useAuth", async () => {
-  const actual = await vi.importActual("../../hooks/useAuth");
+// Mock React Query
+const mockMutateAsync = vi.fn();
+const mockUseMutation = vi.fn().mockImplementation(({ onSuccess, onError }) => {
+  // Store callback references for testing
+  if (onSuccess) globalThis.mockOnSuccess = onSuccess;
+  if (onError) globalThis.mockOnError = onError;
+
   return {
-    ...actual,
-    useAuth: vi.fn(),
+    mutateAsync: mockMutateAsync,
+    isPending: false,
   };
 });
 
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: (options) => mockUseMutation(options),
+}));
+
+// Mock the Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
+}));
+
+// Mock the auth service
+vi.mock("../../services/api/authService", () => ({
+  default: {
+    resendVerificationEmail: vi.fn(),
+  },
+}));
+
 describe("EmailVerificationResend", () => {
   // Setup variables
-  const mockResendVerificationEmail = vi.fn();
+  const mockSetError = vi.fn();
   const mockEmail = "test@example.com";
+
+  // Setup for manually triggering callbacks
+  globalThis.mockOnSuccess = null;
+  globalThis.mockOnError = null;
 
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default mock implementation for useAuth
-    vi.mocked(AuthHook.useAuth).mockReturnValue({
-      resendVerificationEmail: mockResendVerificationEmail,
-      loading: false,
-      clearAuthError: vi.fn(),
-      user: null,
-      authError: null,
-      login: vi.fn(),
-      register: vi.fn(),
-      logout: vi.fn(),
-      refreshAuth: vi.fn(),
-      verifyEmail: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      resetPassword: vi.fn(),
-      isAuthenticated: false,
-      isEmailVerified: false,
-      hasAuthError: vi.fn().mockReturnValue(false),
+    // Reset global callbacks
+    globalThis.mockOnSuccess = null;
+    globalThis.mockOnError = null;
+
+    // Mock auth store with default state
+    const mockState = createMockAuthState({
+      setError: mockSetError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
+    });
+
+    // Reset React Query mock to default state
+    mockUseMutation.mockImplementation(({ onSuccess, onError }) => {
+      if (onSuccess) globalThis.mockOnSuccess = onSuccess;
+      if (onError) globalThis.mockOnError = onError;
+
+      return {
+        mutateAsync: mockMutateAsync,
+        isPending: false,
+      };
     });
   });
 
@@ -72,22 +105,13 @@ describe("EmailVerificationResend", () => {
   });
 
   it("shows loading state when resending email", async () => {
-    // Setup mock to delay resolution
-    mockResendVerificationEmail.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(() => resolve("Email sent"), 100);
-        })
-    );
-
-    const user = userEvent.setup();
-    renderEmailVerificationResend();
-
-    // Click resend button
-    const resendButton = screen.getByRole("button", {
-      name: "Resend Verification Email",
+    // Override React Query mock for this test
+    mockUseMutation.mockReturnValueOnce({
+      mutateAsync: mockMutateAsync,
+      isPending: true,
     });
-    await user.click(resendButton);
+
+    renderEmailVerificationResend();
 
     // Check that loading state is shown
     expect(screen.getByText("Sending...")).toBeInTheDocument();
@@ -98,16 +122,23 @@ describe("EmailVerificationResend", () => {
     const user = userEvent.setup();
     renderEmailVerificationResend();
 
-    // Setup success response
-    mockResendVerificationEmail.mockResolvedValueOnce(
-      "Email sent successfully"
-    );
-
     // Click resend button
     const resendButton = screen.getByRole("button", {
       name: "Resend Verification Email",
     });
     await user.click(resendButton);
+
+    // Verify mutateAsync was called with correct arguments
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith({ email: mockEmail });
+    });
+
+    // Trigger success callback
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess("Email sent successfully");
+      }
+    });
 
     // Check that success message is shown
     await waitFor(() => {
@@ -129,16 +160,18 @@ describe("EmailVerificationResend", () => {
     const customSuccessMessage = "Custom success message";
     renderEmailVerificationResend({ successMessage: customSuccessMessage });
 
-    // Setup success response
-    mockResendVerificationEmail.mockResolvedValueOnce(
-      "Email sent successfully"
-    );
-
     // Click resend button
     const resendButton = screen.getByRole("button", {
       name: "Resend Verification Email",
     });
     await user.click(resendButton);
+
+    // Trigger success callback
+    await waitFor(() => {
+      if (globalThis.mockOnSuccess) {
+        globalThis.mockOnSuccess("Email sent successfully");
+      }
+    });
 
     // Check that custom success message is shown
     await waitFor(() => {
@@ -151,13 +184,23 @@ describe("EmailVerificationResend", () => {
     renderEmailVerificationResend();
 
     // Setup error response
-    mockResendVerificationEmail.mockRejectedValueOnce(new Error("API Error"));
+    const errorResponse = {
+      message: "API Error",
+    };
+    mockMutateAsync.mockRejectedValueOnce(errorResponse);
 
     // Click resend button
     const resendButton = screen.getByRole("button", {
       name: "Resend Verification Email",
     });
     await user.click(resendButton);
+
+    // Trigger error callback
+    await waitFor(() => {
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(errorResponse);
+      }
+    });
 
     // Check that error message is shown
     await waitFor(() => {
@@ -167,6 +210,9 @@ describe("EmailVerificationResend", () => {
         )
       ).toBeInTheDocument();
     });
+
+    // Check that error was set in the auth store
+    expect(mockSetError).toHaveBeenCalled();
 
     // Check that resend button is still shown and enabled
     expect(
@@ -182,13 +228,23 @@ describe("EmailVerificationResend", () => {
     renderEmailVerificationResend();
 
     // Setup error response
-    mockResendVerificationEmail.mockRejectedValueOnce(new Error("API Error"));
+    const errorResponse = {
+      message: "API Error",
+    };
+    mockMutateAsync.mockRejectedValueOnce(errorResponse);
 
     // Click resend button
     const resendButton = screen.getByRole("button", {
       name: "Resend Verification Email",
     });
     await user.click(resendButton);
+
+    // Trigger error callback
+    await waitFor(() => {
+      if (globalThis.mockOnError) {
+        globalThis.mockOnError(errorResponse);
+      }
+    });
 
     // Wait for error message to appear
     await waitFor(() => {
@@ -211,7 +267,7 @@ describe("EmailVerificationResend", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("calls resendVerificationEmail with the provided email", async () => {
+  it("calls mutateAsync with the provided email", async () => {
     const user = userEvent.setup();
     renderEmailVerificationResend();
 
@@ -222,6 +278,6 @@ describe("EmailVerificationResend", () => {
     await user.click(resendButton);
 
     // Verify the function was called with the correct email
-    expect(mockResendVerificationEmail).toHaveBeenCalledWith(mockEmail);
+    expect(mockMutateAsync).toHaveBeenCalledWith({ email: mockEmail });
   });
 });

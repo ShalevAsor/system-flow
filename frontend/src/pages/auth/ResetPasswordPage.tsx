@@ -1,71 +1,52 @@
-// src/pages/auth/ResetPasswordPage.tsx
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 import ResetPasswordForm from "../../components/auth/ResetPasswordForm";
 import AuthCard from "../../components/auth/AuthCard";
+import AuthFooter from "../../components/auth/AuthFooter";
 import FormAlert from "../../components/common/FormAlert";
+import { useAuthStore } from "../../store/authStore";
 
-/**
- * Enum representing different states of the password reset flow
- */
-enum ResetPasswordState {
-  FORM = "form",
-  SUCCESS = "success",
-  INVALID_TOKEN = "invalid_token",
-}
+// We can use string literals instead of enum for simpler code
+type ResetPasswordState = "form" | "success" | "invalid_token";
 
 /**
  * Reset Password page component
  */
 const ResetPasswordPage = () => {
-  const { clearAuthError } = useAuth();
+  // Get auth store actions
+  const clearError = useAuthStore((state) => state.clearError);
+
   const location = useLocation();
 
   // Extract token from URL query parameters
   const queryParams = new URLSearchParams(location.search);
   const token = queryParams.get("token") || "";
 
-  // Reset password flow state management
+  // Reset password flow state management - if no token, show invalid state
   const [resetState, setResetState] = useState<ResetPasswordState>(
-    token ? ResetPasswordState.FORM : ResetPasswordState.INVALID_TOKEN
+    token ? "form" : "invalid_token"
   );
 
   // Clean up errors when component unmounts
   useEffect(() => {
     return () => {
-      clearAuthError();
+      clearError();
     };
-  }, [clearAuthError]);
+  }, [clearError]);
 
   // Handle successful password reset
   const handleResetSuccess = () => {
-    setResetState(ResetPasswordState.SUCCESS);
+    setResetState("success");
   };
 
   const handleInvalidToken = () => {
-    setResetState(ResetPasswordState.INVALID_TOKEN);
+    setResetState("invalid_token");
   };
-
-  // Footer content for auth card
-  const footerContent = (
-    <div className="text-center">
-      <p className="text-gray-600">
-        Remember your password?{" "}
-        <Link
-          to="/login"
-          className="text-blue-600 hover:text-blue-500 font-medium"
-        >
-          Sign in
-        </Link>
-      </p>
-    </div>
-  );
 
   // Render the appropriate content based on reset state
   const renderContent = () => {
     switch (resetState) {
-      case ResetPasswordState.SUCCESS:
+      case "success":
         return (
           <div className="text-center">
             <FormAlert
@@ -86,7 +67,7 @@ const ResetPasswordPage = () => {
           </div>
         );
 
-      case ResetPasswordState.INVALID_TOKEN:
+      case "invalid_token":
         return (
           <div className="text-center">
             <FormAlert
@@ -107,7 +88,7 @@ const ResetPasswordPage = () => {
           </div>
         );
 
-      case ResetPasswordState.FORM:
+      case "form":
       default:
         return (
           <ResetPasswordForm
@@ -123,7 +104,14 @@ const ResetPasswordPage = () => {
     <AuthCard
       title="Reset Your Password"
       subtitle="Enter a new password for your account"
-      footer={footerContent}
+      footer={
+        <AuthFooter
+          showLogin
+          customText={{
+            loginText: "Sign in",
+          }}
+        />
+      }
     >
       {renderContent()}
     </AuthCard>

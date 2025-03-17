@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ResetPasswordPage from "./ResetPasswordPage";
+import { useAuthStore } from "../../store/authStore";
+import { createMockAuthState } from "../../utils/testUtils";
 
 // Mock for useLocation to provide query parameters
 const mockUseLocation = vi.fn();
@@ -15,11 +17,9 @@ vi.mock("react-router-dom", () => ({
   ),
 }));
 
-// Mock the auth hook
-vi.mock("../../hooks/useAuth", () => ({
-  useAuth: () => ({
-    clearAuthError: vi.fn(),
-  }),
+// Mock Zustand store
+vi.mock("../../store/authStore", () => ({
+  useAuthStore: vi.fn(),
 }));
 
 // Mock the components used by ResetPasswordPage
@@ -48,6 +48,18 @@ vi.mock("../../components/auth/AuthCard", () => ({
   ),
 }));
 
+vi.mock("../../components/auth/AuthFooter", () => ({
+  default: ({ showLogin, customText }) => (
+    <div data-testid="auth-footer">
+      {showLogin && (
+        <a href="/login" data-testid="login-link">
+          {customText?.loginText || "Sign in"}
+        </a>
+      )}
+    </div>
+  ),
+}));
+
 vi.mock("../../components/common/FormAlert", () => ({
   default: ({ message, variant, showCloseButton }) => (
     <div data-testid={`form-alert-${variant}`}>
@@ -58,9 +70,23 @@ vi.mock("../../components/common/FormAlert", () => ({
 }));
 
 describe("ResetPasswordPage", () => {
+  const mockClearError = vi.fn();
+
   // Reset mocks before each test
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Mock auth store with clearError function
+    const mockState = createMockAuthState({
+      clearError: mockClearError,
+    });
+
+    vi.mocked(useAuthStore).mockImplementation((selector) => {
+      if (typeof selector === "function") {
+        return selector(mockState);
+      }
+      return mockState;
+    });
   });
 
   it("renders the AuthCard with correct props", () => {
@@ -79,12 +105,10 @@ describe("ResetPasswordPage", () => {
       screen.getByText("Enter a new password for your account")
     ).toBeInTheDocument();
 
-    // Check that footer contains links
-    const footer = screen.getByTestId("auth-card-footer");
-    expect(footer).toContainElement(
-      screen.getByText(/Remember your password/i)
-    );
-    expect(footer).toContainElement(screen.getByText("Sign in"));
+    // Check for AuthFooter
+    expect(screen.getByTestId("auth-footer")).toBeInTheDocument();
+    expect(screen.getByTestId("login-link")).toBeInTheDocument();
+    expect(screen.getByText("Sign in")).toBeInTheDocument();
   });
 
   it("renders the password reset form when token is present", () => {
@@ -202,7 +226,23 @@ describe("ResetPasswordPage", () => {
     render(<ResetPasswordPage />);
 
     // Check login link
-    const loginLink = screen.getByText("Sign in");
+    const loginLink = screen.getByTestId("login-link");
     expect(loginLink).toHaveAttribute("href", "/login");
+    expect(loginLink).toHaveTextContent("Sign in");
+  });
+
+  it("cleans up errors when unmounting", () => {
+    // Mock a valid token
+    mockUseLocation.mockReturnValue({
+      search: "?token=valid-token",
+    });
+
+    const { unmount } = render(<ResetPasswordPage />);
+
+    // Unmount the component
+    unmount();
+
+    // Verify cleanup was called
+    expect(mockClearError).toHaveBeenCalled();
   });
 });
