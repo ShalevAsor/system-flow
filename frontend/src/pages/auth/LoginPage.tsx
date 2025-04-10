@@ -19,7 +19,7 @@ const LoginPage = () => {
   // Get redirect path from location state or default to dashboard
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname ||
-    "/dashboard";
+    "/flow-library";
 
   // Redirect if already logged in
   useEffect(() => {

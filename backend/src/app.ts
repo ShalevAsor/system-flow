@@ -7,6 +7,7 @@ import middleware from "./middlewares/middleware";
 // Routers
 import authRouter from "./routers/authRouter";
 import profileRouter from "./routers/profileRouter";
+import flowRouter from "./routers/flowRouter";
 // Add other routers here as your application grows
 
 const app: Express = express();
@@ -25,7 +26,7 @@ app.get("/", (_req: Request, res: Response) => {
 // API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/profile", profileRouter);
-// Add other API routes here as your application grows
+app.use("/api/flows", flowRouter);
 
 // Testing routes
 if (process.env.NODE_ENV === "test") {

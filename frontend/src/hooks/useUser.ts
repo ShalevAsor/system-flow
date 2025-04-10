@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import profileService from "../services/api/profileService";
 import { useAuthStore } from "../store/authStore";
 import { AppError } from "../types/errors";
-import { User } from "../services/api/authService";
+import { User } from "../types/userTypes";
 
 /**
  * Hook to fetch and access user data

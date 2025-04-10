@@ -1,16 +1,17 @@
 // frontend/src/services/api/authService.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import MockAdapter from "axios-mock-adapter";
-import authService, {
+import {
   LoginRequest,
   RegisterRequest,
-  User,
   AuthResponse,
   MessageResponse,
   RequestPasswordResetRequest,
   ResetPasswordRequest,
   ResendVerificationRequest,
-} from "./authService";
+} from "../../types/authTypes";
+import { User } from "../../types/userTypes";
+import authService from "./authService";
 import apiClient from "./apiClient";
 
 // Create a mock for Axios

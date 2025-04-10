@@ -23,7 +23,7 @@ const RegisterPage = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+      navigate("/flow-library", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

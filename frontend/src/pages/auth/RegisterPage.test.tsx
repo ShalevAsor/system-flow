@@ -113,7 +113,7 @@ describe("RegisterPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("redirects to dashboard if user is already authenticated", async () => {
+  it("redirects to flow library if user is already authenticated", async () => {
     // Mock authenticated user state
     const authenticatedState = createMockAuthState({
       isAuthenticated: true,
@@ -131,7 +131,7 @@ describe("RegisterPage", () => {
 
     // Verify that navigate was called with the correct path
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/dashboard", {
+      expect(mockNavigate).toHaveBeenCalledWith("/flow-library", {
         replace: true,
       });
     });

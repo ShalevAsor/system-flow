@@ -27,26 +27,28 @@ const Navbar = () => {
           {/* Logo & Brand */}
           <div className="flex-shrink-0 flex items-center">
             <Link to="/" className="text-xl font-bold text-indigo-600">
-              My App
+              SystemFlow
             </Link>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             <div className="flex space-x-4">
-              <Link
-                to="/"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-              >
-                Home
-              </Link>
               {isAuthenticated && (
-                <Link
-                  to="/dashboard"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                >
-                  Dashboard
-                </Link>
+                <>
+                  <Link
+                    to="/flow-library"
+                    className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    Flow Library
+                  </Link>
+                  <Link
+                    to="/flow-editor"
+                    className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    Flow Editor
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -136,18 +138,12 @@ const Navbar = () => {
       {/* Mobile menu, show/hide based on menu state */}
       <div className={`${isMenuOpen ? "block" : "hidden"} sm:hidden`}>
         <div className="px-2 pt-2 pb-3 space-y-1">
-          <Link
-            to="/"
-            className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-          >
-            Home
-          </Link>
           {isAuthenticated && (
             <Link
               to="/dashboard"
               className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
             >
-              Dashboard
+              Flow Library
             </Link>
           )}
           {isAuthenticated ? (
@@ -175,7 +171,7 @@ const Navbar = () => {
               </Link>
               <Link
                 to="/register"
-                className="block px-3 py-2 mt-1 rounded-md text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-2"
+                className="block px-3 py-2 mt-1 rounded-md text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700"
               >
                 Register
               </Link>

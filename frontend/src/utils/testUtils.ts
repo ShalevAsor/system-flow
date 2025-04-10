@@ -1,6 +1,10 @@
 // frontend/src/utils/testUtils.ts
 import { vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
+import {
+  SimulationRequest,
+  SimulationRequestType,
+} from "../types/flow/simulationTypes";
 
 /**
  * Creates a mock auth state for testing
@@ -89,3 +93,47 @@ export const createApiErrorResponse = (
     config: {},
   },
 });
+
+/**
+ * Create simulation request
+ */
+
+export const createRequest = (
+  id: string,
+  type: SimulationRequestType,
+  src: string,
+  dest: string,
+  size: number = 5,
+  createdAt = 0
+): SimulationRequest => {
+  const request: SimulationRequest = {
+    id,
+    type,
+    status: "pending",
+    sourceNodeId: src,
+    currentNodeId: src,
+    destinationNodeId: dest,
+    path: [],
+    // Size and timing
+    sizeKB: size,
+    createdAt,
+    // Client preferences
+    secureConnection: false,
+    preferredProtocol: "HTTP",
+    authMethod: "JWT",
+    maxRetries: 3,
+    sourceRegion: "Europe",
+    cacheEnabled: false,
+    retryOnError: false,
+    // Processing data
+    processingData: {
+      retryCount: 0,
+      processingTime: 0,
+      requiredProcessingTime: 10,
+      nodeUtilization: {},
+      edgeUtilization: {},
+      totalProcessingTime: 0,
+    },
+  };
+  return request;
+};

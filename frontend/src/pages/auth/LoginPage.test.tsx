@@ -121,7 +121,7 @@ describe("LoginPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("redirects to dashboard if user is already logged in", async () => {
+  it("redirects to flow library if user is already logged in", async () => {
     // Mock authenticated user state
     const authenticatedState = createMockAuthState({ isAuthenticated: true });
     vi.mocked(useAuthStore).mockImplementation((selector) => {
@@ -135,7 +135,7 @@ describe("LoginPage", () => {
 
     // Verify that navigate was called with the correct path
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith("/dashboard", {
+      expect(mockNavigate).toHaveBeenCalledWith("/flow-library", {
         replace: true,
       });
     });
