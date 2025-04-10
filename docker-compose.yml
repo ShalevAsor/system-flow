@@ -8,14 +8,6 @@ services:
     volumes:
       - mongo_data:/data/db # Persists data between container restarts
     environment:
-      - MONGO_INITDB_DATABASE=fullstack-trainer # Creates this database on startup
-  redis: # Service name for Redis
-    image: redis:alpine # Uses the lightweight Alpine version of Redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data # Persists Redis data
+      - MONGO_INITDB_DATABASE=system-flow # Creates this database on startup
 volumes: # Defines named volumes that persist data
   mongo_data: # MongoDB data storage
-  redis_data: # Redis data storage

@@ -18,11 +18,6 @@ jobs:
         image: mongo:latest # Using the latest MongoDB image
         ports:
           - 27017:27017 # Map container port to host
-      # Redis service for backend tests
-      redis:
-        image: redis:alpine # Using the lightweight Alpine Redis image
-        ports:
-          - 6379:6379 # Map container port to host
     # Sequence of steps to execute
     steps:
       # Check out the repository code
@@ -51,8 +46,7 @@ jobs:
           npm test
         env:
           # Environment variables for testing
-          MONGODB_URI: mongodb://localhost:27017/fullstack-trainer-test
-          REDIS_URL: redis://localhost:6379
+          MONGODB_URI: mongodb://localhost:27017/system-flow-test
           JWT_SECRET: test-secret-key
       # Build backend TypeScript code
       - name: Backend - Build

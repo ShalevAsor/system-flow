@@ -7,16 +7,14 @@ const config = {
   MONGODB_URI:
     process.env.NODE_ENV === "test"
       ? process.env.TEST_MONGODB_URI ||
-        "mongodb://localhost:27017/fullstack-trainer-test"
-      : process.env.MONGODB_URI ||
-        "mongodb://localhost:27017/fullstack-trainer",
+        "mongodb://localhost:27017/system-flow-test"
+      : process.env.MONGODB_URI || "mongodb://localhost:27017/system-flow",
   JWT_SECRET:
     process.env.JWT_SECRET ||
     (() => {
       throw new Error("JWT_SECRET is not defined");
     })(),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "1h",
-  REDIS_URL: process.env.REDIS_URL || "redis://localhost:6379",
 
   // Email configuration
   EMAIL_HOST: process.env.EMAIL_HOST,
