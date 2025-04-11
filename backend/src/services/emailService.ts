@@ -108,14 +108,7 @@ export class EmailService {
       debug: process.env.NODE_ENV !== "production",
     });
 
-    // Test the connection
-    this.transporter.verify((error) => {
-      if (error) {
-        logger.error("Email transporter verification failed:", error);
-      } else {
-        logger.info("Email transporter ready to send messages");
-      }
-    });
+    logger.info("Production email transporter set up");
   }
   /**
    * Send an email verification link to a user
