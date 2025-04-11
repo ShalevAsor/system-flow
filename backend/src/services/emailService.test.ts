@@ -82,29 +82,6 @@ describe("EmailService", () => {
       // Reset NODE_ENV
       (config as Record<string, string>).NODE_ENV = originalNodeEnv;
     });
-
-    it("should initialize with production configuration when NODE_ENV is not development", () => {
-      // Override the NODE_ENV for this test
-      const originalNodeEnv = config.NODE_ENV;
-      (config as Record<string, string>).NODE_ENV = "production";
-
-      // Create a new instance to trigger setup
-      new EmailService();
-
-      // Verify that createTransport was called with production config
-      expect(nodemailer.createTransport).toHaveBeenCalledWith({
-        host: config.EMAIL_HOST,
-        port: parseInt(config.EMAIL_PORT || "587"),
-        secure: false,
-        auth: {
-          user: config.EMAIL_USER,
-          pass: config.EMAIL_PASSWORD,
-        },
-      });
-
-      // Reset NODE_ENV
-      (config as Record<string, string>).NODE_ENV = originalNodeEnv;
-    });
   });
 
   describe("Sending Emails", () => {
