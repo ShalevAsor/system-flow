@@ -104,7 +104,8 @@ export class EmailService {
       console.log(`From: ${config.EMAIL_FROM}`);
       console.log(`Secure: ${config.EMAIL_SECURE}`);
 
-      this.transporter = nodemailer.createTransport({
+      // Create the transporter but don't do anything with it yet
+      const transporter = nodemailer.createTransport({
         host: config.EMAIL_HOST,
         port: parseInt(config.EMAIL_PORT || "587"),
         secure: config.EMAIL_SECURE === "true",
@@ -115,12 +116,32 @@ export class EmailService {
         debug: true,
       });
 
-      // Test the connection immediately
-      this.transporter.verify((error, _success) => {
+      // Test the connection
+      transporter.verify((error, _success) => {
         if (error) {
           console.error("Transporter verification error:", error);
         } else {
           console.log("SMTP server connection successful");
+
+          // Now try sending a test email ONLY if verification succeeded
+          console.log("Attempting to send test email...");
+          transporter.sendMail(
+            {
+              from: config.EMAIL_FROM,
+              to: "your-email@example.com", // Use your email
+              subject: "Test from Render Deployment",
+              text: "If you see this, email sending works!",
+            },
+            (err, info) => {
+              if (err) {
+                console.error("TEST EMAIL FAILED:", err);
+              } else {
+                console.log("TEST EMAIL SENT SUCCESSFULLY:", info.messageId);
+                // Only set the class transporter if everything works
+                this.transporter = transporter;
+              }
+            }
+          );
         }
       });
 
