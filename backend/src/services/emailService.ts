@@ -96,27 +96,30 @@ export class EmailService {
   // }
   private setupProductionTransporter(): void {
     try {
-      // Ensure the API key has no whitespace
-      const cleanAPIKey = config.EMAIL_PASSWORD?.trim();
-
-      logger.info("Setting up SendGrid SMTP transporter");
-
+      // SendGrid configuration
       this.transporter = nodemailer.createTransport({
-        host: "smtp.sendgrid.net",
-        port: 587,
-        secure: false, // false for TLS - as a boolean not string!
+        host: config.EMAIL_HOST || "smtp.sendgrid.net",
+        port: parseInt(config.EMAIL_PORT || "587"),
+        secure: config.EMAIL_SECURE === "true",
         auth: {
-          user: "apikey", // literal string 'apikey' - not the API key itself
-          pass: cleanAPIKey, // API key with whitespace trimmed
+          user: config.EMAIL_USER || "apikey", // Always 'apikey' for SendGrid
+          pass: config.EMAIL_PASSWORD, // Your SendGrid API key
         },
-        // Add a longer timeout to allow for connection issues
-        connectionTimeout: 10000, // 10 seconds
+      });
+
+      // Verify connection configuration
+      this.transporter.verify((error) => {
+        if (error) {
+          logger.error("Email transporter verification failed:", error);
+        } else {
+          logger.info("Email transporter ready to send messages");
+        }
       });
 
       logger.info("Production email transporter set up");
     } catch (error) {
       logger.error("Failed to set up production email transporter:", error);
-      // Don't throw, just log the error and continue
+      // Don't throw here - allow app to continue even with email failures
     }
   }
   /**
