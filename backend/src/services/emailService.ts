@@ -83,6 +83,7 @@ export class EmailService {
     // This implementation uses nodemailer with standard SMTP
     // Replace with appropriate provider-specific setup as needed
     this.transporter = nodemailer.createTransport({
+      service: "SendGrid",
       host: config.EMAIL_HOST,
       port: parseInt(config.EMAIL_PORT || "587"),
       secure: config.EMAIL_SECURE === "true",
