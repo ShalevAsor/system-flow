@@ -231,6 +231,7 @@ export class EmailService {
    * Creates an instance of the EmailService
    */
   constructor() {
+    this.fromEmail = config.EMAIL_FROM || "noreply@yourapplication.com";
     try {
       // Initialize the transporter based on the environment
       if (config.NODE_ENV === "development") {
@@ -239,8 +240,6 @@ export class EmailService {
         // Try SendGrid API first
         this.setupSendGridAPI();
       }
-
-      this.fromEmail = config.EMAIL_FROM || "noreply@yourapplication.com";
     } catch (error) {
       // Don't crash the app, just log the error
       logger.error(
