@@ -79,77 +79,22 @@ export class EmailService {
    * Set up email transporter for production environment
    * Uses configured email provider (Resend, SendGrid, etc.)
    */
-  // private setupProductionTransporter(): void {
-  //   // This implementation uses nodemailer with standard SMTP
-  //   // Replace with appropriate provider-specific setup as needed
-  //   this.transporter = nodemailer.createTransport({
-  //     host: config.EMAIL_HOST,
-  //     port: parseInt(config.EMAIL_PORT || "587"),
-  //     secure: config.EMAIL_SECURE === "true",
-  //     auth: {
-  //       user: config.EMAIL_USER,
-  //       pass: config.EMAIL_PASSWORD,
-  //     },
-  //   });
-
-  //   logger.info("Production email transporter set up");
-  // }
-  // Update your email setup function
   private setupProductionTransporter(): void {
-    try {
-      console.log("Setting up email with:");
-      console.log(`Host: ${config.EMAIL_HOST}`);
-      console.log(`Port: ${config.EMAIL_PORT}`);
-      console.log(`User: ${config.EMAIL_USER}`);
-      console.log(`From: ${config.EMAIL_FROM}`);
-      console.log(`Secure: ${config.EMAIL_SECURE}`);
+    // This implementation uses nodemailer with standard SMTP
+    // Replace with appropriate provider-specific setup as needed
+    this.transporter = nodemailer.createTransport({
+      host: config.EMAIL_HOST,
+      port: parseInt(config.EMAIL_PORT || "587"),
+      secure: config.EMAIL_SECURE === "true",
+      auth: {
+        user: config.EMAIL_USER,
+        pass: config.EMAIL_PASSWORD,
+      },
+    });
 
-      // Create the transporter but don't do anything with it yet
-      const transporter = nodemailer.createTransport({
-        host: config.EMAIL_HOST,
-        port: parseInt(config.EMAIL_PORT || "587"),
-        secure: config.EMAIL_SECURE === "true",
-        auth: {
-          user: config.EMAIL_USER,
-          pass: config.EMAIL_PASSWORD,
-        },
-        debug: true,
-      });
-
-      // Test the connection
-      transporter.verify((error, _success) => {
-        if (error) {
-          console.error("Transporter verification error:", error);
-        } else {
-          console.log("SMTP server connection successful");
-
-          // Now try sending a test email ONLY if verification succeeded
-          console.log("Attempting to send test email...");
-          transporter.sendMail(
-            {
-              from: config.EMAIL_FROM,
-              to: "your-email@example.com", // Use your email
-              subject: "Test from Render Deployment",
-              text: "If you see this, email sending works!",
-            },
-            (err, info) => {
-              if (err) {
-                console.error("TEST EMAIL FAILED:", err);
-              } else {
-                console.log("TEST EMAIL SENT SUCCESSFULLY:", info.messageId);
-                // Only set the class transporter if everything works
-                this.transporter = transporter;
-              }
-            }
-          );
-        }
-      });
-
-      logger.info("Production email transporter set up");
-    } catch (err) {
-      console.error("Error setting up email:", err);
-    }
+    logger.info("Production email transporter set up");
   }
+
   /**
    * Send an email verification link to a user
    * @param to Recipient email address
