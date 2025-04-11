@@ -79,49 +79,49 @@ export class EmailService {
    * Set up email transporter for production environment
    * Uses configured email provider (Resend, SendGrid, etc.)
    */
-  // private setupProductionTransporter(): void {
-  //   // This implementation uses nodemailer with standard SMTP
-  //   // Replace with appropriate provider-specific setup as needed
-  //   this.transporter = nodemailer.createTransport({
-  //     host: config.EMAIL_HOST,
-  //     port: parseInt(config.EMAIL_PORT || "587"),
-  //     secure: config.EMAIL_SECURE === "true",
-  //     auth: {
-  //       user: config.EMAIL_USER,
-  //       pass: config.EMAIL_PASSWORD,
-  //     },
-  //   });
-
-  //   logger.info("Production email transporter set up");
-  // }
   private setupProductionTransporter(): void {
-    try {
-      // SendGrid configuration
-      this.transporter = nodemailer.createTransport({
-        host: config.EMAIL_HOST || "smtp.sendgrid.net",
-        port: parseInt(config.EMAIL_PORT || "587"),
-        secure: config.EMAIL_SECURE === "true",
-        auth: {
-          user: config.EMAIL_USER || "apikey", // Always 'apikey' for SendGrid
-          pass: config.EMAIL_PASSWORD, // Your SendGrid API key
-        },
-      });
+    // This implementation uses nodemailer with standard SMTP
+    // Replace with appropriate provider-specific setup as needed
+    this.transporter = nodemailer.createTransport({
+      host: config.EMAIL_HOST,
+      port: parseInt(config.EMAIL_PORT || "587"),
+      secure: config.EMAIL_SECURE === "true",
+      auth: {
+        user: config.EMAIL_USER,
+        pass: config.EMAIL_PASSWORD,
+      },
+    });
 
-      // Verify connection configuration
-      this.transporter.verify((error) => {
-        if (error) {
-          logger.error("Email transporter verification failed:", error);
-        } else {
-          logger.info("Email transporter ready to send messages");
-        }
-      });
-
-      logger.info("Production email transporter set up");
-    } catch (error) {
-      logger.error("Failed to set up production email transporter:", error);
-      // Don't throw here - allow app to continue even with email failures
-    }
+    logger.info("Production email transporter set up");
   }
+  // private setupProductionTransporter(): void {
+  //   try {
+  //     // SendGrid configuration
+  //     this.transporter = nodemailer.createTransport({
+  //       host: config.EMAIL_HOST || "smtp.sendgrid.net",
+  //       port: parseInt(config.EMAIL_PORT || "587"),
+  //       secure: config.EMAIL_SECURE === "true",
+  //       auth: {
+  //         user: config.EMAIL_USER || "apikey", // Always 'apikey' for SendGrid
+  //         pass: config.EMAIL_PASSWORD, // Your SendGrid API key
+  //       },
+  //     });
+
+  //     // Verify connection configuration
+  //     this.transporter.verify((error) => {
+  //       if (error) {
+  //         logger.error("Email transporter verification failed:", error);
+  //       } else {
+  //         logger.info("Email transporter ready to send messages");
+  //       }
+  //     });
+
+  //     logger.info("Production email transporter set up");
+  //   } catch (error) {
+  //     logger.error("Failed to set up production email transporter:", error);
+  //     // Don't throw here - allow app to continue even with email failures
+  //   }
+  // }
   /**
    * Send an email verification link to a user
    * @param to Recipient email address
