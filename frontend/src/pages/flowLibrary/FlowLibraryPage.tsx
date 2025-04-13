@@ -1,4 +1,3 @@
-// src/pages/dashboard/DashboardPage.tsx
 import { useState } from "react";
 import { useFlows } from "../../hooks/useFlows";
 import Loading from "../../components/ui/Loading";
@@ -10,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 /**
- * Dashboard page component (protected route)
+ * Flow Library page component (protected route)
  */
 const FlowLibraryPage = () => {
   const { data: flows, isLoading, error } = useFlows();

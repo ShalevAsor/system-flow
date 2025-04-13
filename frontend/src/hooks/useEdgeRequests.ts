@@ -1,33 +1,3 @@
-// import { useMemo } from "react";
-// import { useSimulationStore } from "../store/simulationStore";
-
-// // Maximum number of requests to process for visualization on a single edge
-// const MAX_REQUESTS_PER_EDGE = 20;
-
-// export const useEdgeRequests = (edgeId: string) => {
-//   const requestsInFlight = useSimulationStore(
-//     (state) => state.requestsInFlight
-//   );
-//   const isRunning = useSimulationStore((state) => state.isRunning);
-
-//   // Memoize the filtered result
-//   return useMemo(() => {
-//     if (!isRunning) return [];
-
-//     // Filter requests for this edge
-//     const edgeRequests = requestsInFlight
-//       .filter((request) => request.currentEdgeId === edgeId)
-//       .sort((a, b) => a.createdAt - b.createdAt);
-
-//     // If there are more requests than our limit, take the most recent ones
-//     // You could alternatively take the first ones or a sample across all
-//     if (edgeRequests.length > MAX_REQUESTS_PER_EDGE) {
-//       return edgeRequests.slice(-MAX_REQUESTS_PER_EDGE);
-//     }
-
-//     return edgeRequests;
-//   }, [edgeId, isRunning, requestsInFlight]);
-// };
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSimulationStore } from "../store/simulationStore";
 import { SimulationRequest } from "../types/flow/simulationTypes";

@@ -202,7 +202,7 @@ describe("Request Generator", () => {
       ) as ServerNode;
 
       const requestType: SimulationRequestType = "Read";
-      const baseSize = 5 * 0.7;
+      const baseSize = 1 * 0.7;
       const clientSizeAdjustment = baseSize * 1.7 * 1.2 + 0.5;
       const targetSizeAdjustment = clientSizeAdjustment * 1.2;
       const expectedSize = targetSizeAdjustment; // This is the final baseSize

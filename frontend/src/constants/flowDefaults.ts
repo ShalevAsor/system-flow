@@ -72,7 +72,7 @@ export const templatePaletteItems: TemplatePaletteItem[] = [
 /**
  * Default values for Requests
  */
-export const BASE_SIZE = 5; // 5 KB
+export const BASE_SIZE = 1; // 1 KB
 // How often the simulation updates (ms)
 export const TICK_INTERVAL = 100;
 

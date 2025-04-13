@@ -101,7 +101,6 @@ export const requestGenerator = {
     allEdges: SystemDesignEdge[],
     currentTime: number
   ): SimulationRequest | null {
-    console.log("Visited generateRequestFromClient");
     // Determine the type of the request
     const requestType: SimulationRequestType = this.determineRequestType();
 
@@ -242,7 +241,6 @@ export const requestGenerator = {
     // Add some randomness (±20%)
     const randomFactor = 0.8 + Math.random() * 0.4;
     const size = Math.round(baseSize * randomFactor);
-
     return size;
   },
   determineInitialClientProcessingTime(clientData: ClientNodeData): number {

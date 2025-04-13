@@ -4,7 +4,6 @@ import { SimulationRequest } from "../../../../types/flow/simulationTypes";
 interface RequestVisualizerProps {
   edgePath: string;
   request: SimulationRequest;
-  // Removed unused parameters from interface
 }
 
 const getRequestColor = (retryCount: number): string => {
@@ -22,9 +21,7 @@ const getRequestColor = (retryCount: number): string => {
 export const RequestVisualizer: FC<RequestVisualizerProps> = ({
   edgePath,
   request,
-  // Removed unused parameters
 }) => {
-  // Move useMemo hook before any conditional returns
   const stableOffset = useMemo(() => {
     if (!request) return 0;
 
@@ -38,12 +35,7 @@ export const RequestVisualizer: FC<RequestVisualizerProps> = ({
   if (!request) return null;
 
   const color = getRequestColor(request.processingData.retryCount);
-  console.log(
-    "RetryCount:",
-    request.processingData.retryCount,
-    "maxRetires:",
-    request.maxRetries
-  );
+
   const animationKey = `${request.id}-${edgePath.length}`;
 
   return (

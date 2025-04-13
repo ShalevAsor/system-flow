@@ -16,7 +16,7 @@ import HomePage from "../../pages/HomePage";
 import DashboardPage from "../../pages/flowLibrary/FlowLibraryPage";
 import ProfilePage from "../../pages/profile/ProfilePage";
 import NotFoundPage from "../../pages/NotFoundPage";
-import FlowEditorPage from "../../pages/flow/FlowEditorPage";
+import FlowEditorPage from "../../pages/flowEditor/FlowEditorPage";
 import FlowEditorLayout from "../layout/FlowEditorLayout";
 
 /**

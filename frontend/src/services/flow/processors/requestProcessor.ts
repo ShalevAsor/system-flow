@@ -156,7 +156,6 @@ export const requestProcessor = {
       updatedRequest.failureReason = "Timeout - exceeded maximum lifetime";
       // Decrease utilization since request is no longer being processed
       this.decreaseNodeUtilization(currentNodeId, utilization, updatedRequest);
-
       return updatedRequest;
     }
     // 2. Check if max retries exceeded
@@ -165,6 +164,7 @@ export const requestProcessor = {
       updatedRequest.failedAt = elapsedSimulationTime;
       updatedRequest.failureReason = "Exceeded maximum retry attempts";
       this.decreaseNodeUtilization(currentNodeId, utilization, updatedRequest);
+
       return updatedRequest;
     }
     // Get the current node
@@ -189,6 +189,7 @@ export const requestProcessor = {
       // 3.2 check for node overload
       if (this.isNodeOverloaded(currentNode, utilization)) {
         // Higher chance to fail the request - 30% chance to fail
+
         if (Math.random() < FAILURE_CHANCE_NODE_OVERLOAD) {
           updatedRequest.status = "failed";
           updatedRequest.failedAt = elapsedSimulationTime;
@@ -198,6 +199,7 @@ export const requestProcessor = {
             utilization,
             updatedRequest
           );
+
           return updatedRequest;
         }
         // If not failed, processing time is slower on overloaded node
@@ -241,6 +243,7 @@ export const requestProcessor = {
     if (updatedRequest.retryOnError && Math.random() < RETRY_CHANCE) {
       updatedRequest.processingData.retryCount++;
       updatedRequest.status = "processing";
+
       return updatedRequest;
     }
     // 5. Get next node
@@ -266,6 +269,7 @@ export const requestProcessor = {
           utilization,
           updatedRequest
         );
+
         return updatedRequest;
       }
     }
@@ -281,6 +285,7 @@ export const requestProcessor = {
         updatedRequest.processingData.retryCount++;
         // Return as still processing but with incremented retry count
         updatedRequest.status = "processing";
+
         return updatedRequest;
       } else {
         updatedRequest.status = "failed";
@@ -291,6 +296,7 @@ export const requestProcessor = {
           utilization,
           updatedRequest
         );
+
         return updatedRequest;
       }
     }
@@ -326,10 +332,12 @@ export const requestProcessor = {
           utilization,
           updatedRequest
         );
+
         return updatedRequest;
       }
     }
     // 7. Request is moving to the next node
+
     // Decrease utilization at current node since request is leaving
     this.decreaseNodeUtilization(currentNodeId, utilization, updatedRequest);
 
@@ -355,6 +363,7 @@ export const requestProcessor = {
     updatedRequest.status = "processing";
     updatedRequest.processingData.edgeToDecreaseId = edge.id;
     this.applyRequiredProcessingTimePenalty(updatedRequest, nodes);
+
     return updatedRequest;
   },
   /**
@@ -760,7 +769,7 @@ export const requestProcessor = {
       const clientData = node.data;
 
       // Base impact
-      impact = request.sizeKB / 100000;
+      impact = request.sizeKB / 50000;
 
       // Consider device performance
       if (clientData.devicePerformance === "Low") {
@@ -795,12 +804,12 @@ export const requestProcessor = {
 
       // Network stability factor (more unstable = higher resource usage due to retries/overhead)
       if (clientData.networkStability < 0.7) {
-        impact *= 1.5 - clientData.networkStability;
+        impact *= 2 - clientData.networkStability;
       }
 
       // Packet loss increases impact due to retransmissions
       if (clientData.packetLossRate > 0) {
-        impact *= 1 + clientData.packetLossRate * 3;
+        impact *= 1 + clientData.packetLossRate * 10; // Max *3 impact
       }
 
       // Authentication method affects overhead
@@ -825,7 +834,7 @@ export const requestProcessor = {
         }
       }
     } else if (isServerNode(node)) {
-      impact = request.sizeKB / 100000; // Servers have very low impact
+      impact = request.sizeKB / 50000; // Servers have very low impact
       const serverData = node.data;
       // Calculate server capacity factor based on resources
       let capacityFactor = 1;

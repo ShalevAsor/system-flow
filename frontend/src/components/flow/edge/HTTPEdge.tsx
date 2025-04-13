@@ -84,13 +84,11 @@ const HTTPEdge: FC<EdgeProps<HTTPEdge>> = ({
       />
       {/* Requests animation  */}
       {animated &&
-        requestsOnEdge.map((request, index) => (
+        requestsOnEdge.map((request) => (
           <RequestVisualizer
             key={request.id}
             request={request}
             edgePath={edgePath}
-            index={index}
-            requestsCount={requestsOnEdge.length}
           />
         ))}
       {/* Edge Label */}

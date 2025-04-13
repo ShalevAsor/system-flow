@@ -44,7 +44,7 @@ import SimulationPanel from "../../components/flow/simulation/SimulationPanel";
 import { ComponentsPanel } from "../../components/flow/panels/ComponentsPanel";
 import "./flow.css";
 import { FlowControl } from "../../components/flow/FlowControl";
-
+import { FlowLegend } from "../../components/flow/FlowLegend";
 /* Wrap the FlowContent in ReactFlowProvider */
 const FlowContent = () => {
   // Refs
@@ -248,7 +248,7 @@ const FlowContent = () => {
           <Controls />
           <MiniMap />
           <Panel position="top-left">
-            <h3 className="text-lg font-semibold">System Design Canvas</h3>
+            <FlowLegend />
           </Panel>
         </ReactFlow>
       </div>

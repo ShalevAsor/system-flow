@@ -1,6 +1,6 @@
 // frontend/src/utils/testUtils.ts
 import { vi } from "vitest";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, UseQueryResult } from "@tanstack/react-query";
 import {
   SimulationRequest,
   SimulationRequestType,
@@ -136,4 +136,30 @@ export const createRequest = (
     },
   };
   return request;
+};
+
+/**
+ * Helper function to create query result
+ */
+export const createQueryResult = <TData, TError>(
+  overrides: Partial<UseQueryResult<TData, TError>> = {}
+): UseQueryResult<TData, TError> => {
+  return {
+    data: undefined,
+    isLoading: false,
+    error: null,
+    status: "success",
+    isError: false,
+    isSuccess: true,
+    isFetching: false,
+    isPending: false,
+    isPaused: false,
+    isPlaceholderData: false,
+    isRefetching: false,
+    isStale: false,
+    refetch: vi.fn(),
+    remove: vi.fn(),
+    fetchStatus: "idle",
+    ...overrides,
+  } as unknown as UseQueryResult<TData, TError>;
 };

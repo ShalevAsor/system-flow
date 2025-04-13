@@ -31,7 +31,7 @@ import { architectureTemplates } from "../constants/architectureTemplateDefaults
 import { calculateTreeLayout } from "../utils/flow/templateUtils";
 
 // import { initialNodes, initialEdges } from "../data/canvasData/basic";
-interface FlowState {
+export interface FlowState {
   // The nodes in the flow
   nodes: SystemDesignNode[];
   // The edges connecting the nodes in the flow
