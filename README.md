@@ -2,7 +2,7 @@
 
 A full-stack web application for simulating, visualizing, and analyzing software architecture designs with real-time performance metrics and data flow visualization.
 
-![Software Architecture Simulation System Demo](./screenshots/empty.png)
+![Software Architecture Simulation System Demo](./screenshots/clearBoard.png)
 
 ## 🚀 Features
 
@@ -37,8 +37,10 @@ The system employs a directed graph data structure to model the relationships be
 
 ## 🖼️ Screenshots
 
-![Component Library](./screenshots/library.png)
+![Component Template](./screenshots/clearBoard.png)
 _Available components for architecture design_
+![Component Library](./screenshots/library.png)
+_Save and load custom templates_
 
 ![Performance Analysis](./screenshots/running.png)
 _Real-time performance metrics and bottleneck identification_
@@ -51,11 +53,3 @@ This project implements a robust CI/CD pipeline using GitHub Actions:
 - Linting and code quality checks
 - Docker image building and publishing
 - Automatic deployment to staging environment
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
