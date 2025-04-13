@@ -1,78 +1,61 @@
-# Interactive System Design Simulator
+# Interactive Software Architecture Simulation System
 
-## Project Overview
+A full-stack web application for simulating, visualizing, and analyzing software architecture designs with real-time performance metrics and data flow visualization.
 
-The Interactive System Design Simulator is a web-based application that allows users to design, visualize, and simulate complex system architectures through an intuitive interface. The platform enables software engineers, architects, and students to experiment with different architectural patterns and configurations to understand their impact on system performance, scalability, and reliability.
+![Software Architecture Simulation System Demo](./screenshots/empty.png)
 
-## Core Features
+## 🚀 Features
 
-### 1. Visual System Design Interface
+- **Architecture Template Library**: Pre-defined templates for common architectures (microservices, monolithic, serverless, etc.)
+- **Drag & Drop Interface**: Intuitive component placement and connection for building custom architectures
+- **Real-time Simulation Engine**: Analyze performance metrics and identify bottlenecks in your system design
+- **Dynamic Data Flow Visualization**: Watch how data moves between components (Database, Client, Server, Cache, etc.)
+- **Performance Analysis**: Identify bottlenecks and common architectural errors
+- **Exportable Reports**: Generate comprehensive reports on architecture performance and recommendations
 
-- Drag-and-drop component placement on a visual canvas
-- Extensive library of system components (load balancers, servers, databases, caches, etc.)
-- Connection tools to establish relationships and data flows between components
-- Intuitive grouping and organization capabilities for complex architectures
+## 💻 Tech Stack
 
-### 2. Component Configuration
+### Backend
 
-- Detailed configuration options for each component type
-- Customizable parameters (throughput, capacity, response times, etc.)
-- Pre-built templates for common architectural patterns
-- Custom component creation and configuration
+- Node.js & Express for RESTful API development
+- MongoDB with Mongoose for database management and object modeling
+- JWT authentication and middleware for security
+- CI/CD pipeline with GitHub Actions
+- Containerization with Docker
 
-### 3. Real-Time Simulation
+### Frontend
 
-- Dynamic visualization of data flow through the system
-- Load testing with adjustable traffic patterns
-- Bottleneck identification and visualization
-- Performance metrics and analytics
-- Failure scenario testing (component outages, network partitions)
+- React with TypeScript for robust UI development
+- Vite for fast development experience
+- React Flow for interactive node-based simulation
+- Tailwind CSS for responsive design
+- Custom simulation engine using directed graph algorithms
 
-### 4. Collaborative Design
+## 📊 Implementation Details
 
-- Real-time multi-user editing capabilities
-- Shared design sessions via unique URLs
-- User presence indicators showing who is viewing/editing
-- Change tracking and user attribution
-- Simple built-in chat functionality for design discussions
+The system employs a directed graph data structure to model the relationships between different architectural components. The simulation engine uses randomization along with predefined parameters to create realistic data flow scenarios that architects can use to make informed decisions about their system design.
 
-### 5. Version Control and History
+## 🖼️ Screenshots
 
-- Snapshot creation of system designs
-- Comparison between different design iterations
-- Performance metrics comparison across versions
-- Rollback capability to previous designs
+![Component Library](./screenshots/library.png)
+_Available components for architecture design_
 
-### 6. Export and Integration
+![Performance Analysis](./screenshots/running.png)
+_Real-time performance metrics and bottleneck identification_
 
-- Export designs as diagrams (PNG, SVG)
-- Generate basic configuration files for actual implementation
-- Design documentation generation
-- Shareable links with view-only or edit permissions
+## 🔄 CI/CD Pipeline
 
-## Educational Value
+This project implements a robust CI/CD pipeline using GitHub Actions:
 
-The platform serves as both a practical tool and an educational resource:
+- Automated testing on pull requests
+- Linting and code quality checks
+- Docker image building and publishing
+- Automatic deployment to staging environment
 
-- Interactive tutorials on system design principles
-- Guided challenges to optimize specific architectures
-- Performance impact visualization for different design decisions
-- Reference implementations of common architectural patterns
+## 🤝 Contributing
 
-## Target Users
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-- Software engineers preparing for system design interviews
-- System architects evaluating design alternatives
-- Students learning distributed systems concepts
-- Engineering teams collaborating on architectural decisions
+## 📝 License
 
-## Differentiation
-
-Unlike static diagramming tools, this simulator provides:
-
-- Dynamic behavior modeling and visualization
-- Performance metrics based on configured parameters
-- Real-time collaborative editing capabilities
-- Educational components that explain why certain designs work better than others
-
-By combining visual design, simulation, collaboration, and educational elements, the Interactive System Design Simulator offers a unique platform for learning and practicing system design skills in an engaging and practical way.
+This project is licensed under the MIT License - see the LICENSE file for details.

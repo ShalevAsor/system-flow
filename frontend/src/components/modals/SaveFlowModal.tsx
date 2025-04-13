@@ -37,6 +37,7 @@ const SaveFlowModal = ({ isOpen, onClose }: SaveFlowModalProps) => {
     register,
     handleSubmit,
     setError,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<SaveFlowFormValues>({
     resolver: zodResolver(saveFlowSchema),
@@ -55,6 +56,7 @@ const SaveFlowModal = ({ isOpen, onClose }: SaveFlowModalProps) => {
         edges,
       }),
     onSuccess: () => {
+      reset();
       toastSuccess("Flow saved successfully!");
       queryClient.invalidateQueries({ queryKey: ["flows"] });
       onClose();
