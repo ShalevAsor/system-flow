@@ -11,6 +11,7 @@ interface FormFieldProps {
   renderRight?: ReactNode;
   className?: string;
   placeholder?: string;
+  defaultValue?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ const FormField = ({
   renderRight,
   className = "",
   placeholder,
+  defaultValue,
 }: FormFieldProps) => {
   const errorId = error ? `${id}-error` : undefined;
 
@@ -50,6 +52,7 @@ const FormField = ({
           }`}
           aria-invalid={error ? "true" : "false"}
           aria-describedby={errorId}
+          value={defaultValue}
           {...register}
         />
         {error && (

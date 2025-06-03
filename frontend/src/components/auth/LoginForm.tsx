@@ -61,8 +61,8 @@ const LoginForm = ({ onUnverifiedEmail }: LoginFormProps) => {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: "demo07730@gmail.com",
+      password: "Aa123456",
     },
   });
 
@@ -110,6 +110,7 @@ const LoginForm = ({ onUnverifiedEmail }: LoginFormProps) => {
         autoComplete="email"
         register={register("email")}
         error={errors.email?.message}
+        defaultValue="demo07730@gmail.com"
       />
 
       {/* Password field */}
@@ -120,6 +121,7 @@ const LoginForm = ({ onUnverifiedEmail }: LoginFormProps) => {
         autoComplete="current-password"
         register={register("password")}
         error={errors.password?.message}
+        defaultValue="Aa123456"
       />
 
       {/* Submit button */}
